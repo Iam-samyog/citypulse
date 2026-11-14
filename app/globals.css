@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-aegean: #0b2545;
+  --color-ivory: #f5f1e6;
+  --color-gold: #c9a24b;
+}
+
+body {
+  background-color: var(--color-aegean);
+  color: var(--color-ivory);
+}
+
+.greek-key-border {
+  border-image-slice: 1;
+  border-width: 2px;
+  border-style: solid;
+  border-color: var(--color-gold);
+}
