@@ -563,22 +563,97 @@ export function AdminDashboard() {
         {active === "Simulator" && (() => {
           const selected = incidents.find((i) => i.incidentId === selectedIncidentId) ?? incidents[0] ?? null;
           const selectedRun = selectedRunId ? simHistory.find((h, i) => (h.runId ?? String(i)) === selectedRunId) ?? null : null;
+          const scenarios = [
+            { id: "fire", title: "Palace fire", note: "Contain a fast-moving fire", color: "#fb8066", mark: "♨" },
+            { id: "rain", title: "Great rains", note: "Protect Ithaca from flooding", color: "#57c5dc", mark: "≈" },
+            { id: "attack", title: "Raiders", note: "Defend the city from the sea", color: "#e5b45d", mark: "⚔" },
+            { id: "quake", title: "Earthquake", note: "Respond to a citywide quake", color: "#b39ae2", mark: "⌁" },
+          ];
+          const coveredScenarios = new Set(simHistory.map((run) => run.scenario)).size;
+          const containedRuns = simHistory.filter((run) => run.outcome === "good").length;
+          const containmentRate = simHistory.length ? Math.round((containedRuns / simHistory.length) * 100) : null;
+          const openSimulator = () => window.open("/simulator/index.html", "_blank", "noopener,noreferrer");
           return (
-          <section className="mt-5 grid items-start gap-5 xl:grid-cols-[1fr_1.1fr]">
-            <div className="flex flex-col gap-5">
-              <Card title="Incidents" subtitle={`${incidents.length} recorded · select one for its overview`}>
-                {incidents.length ? <div className="flex max-h-[260px] flex-col gap-2 overflow-y-auto pr-1">
-                  {incidents.map((inc) => {
-                    const on = !selectedRunId && selected?.incidentId === inc.incidentId;
-                    return <button key={inc.incidentId} onClick={() => { setSelectedIncidentId(inc.incidentId); setSelectedRunId(null); }} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${on ? "border-[#e4aa56]/70 bg-[#4a1f14]" : "border-[#c9a24b]/20 bg-white/[.03] hover:bg-white/[.08]"}`}>
-                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${inc.severity === "critical" ? "bg-red-400" : inc.severity === "major" ? "bg-orange-500" : "bg-amber-400"}`} />
-                      <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold capitalize">{inc.incidentType.replace(/_/g, " ")}</span><span className="block truncate text-[11px] text-[#d8ccb0]/70">{inc.componentId} · {inc.incidentStatus}</span></span>
-                      <span className="text-[10px] uppercase tracking-wider text-[#d8ccb0]/60">{inc.severity}</span>
+          <section className="mt-5 space-y-5">
+            <div className="relative overflow-hidden rounded-3xl border border-[#c9a24b]/30 bg-[radial-gradient(ellipse_at_85%_20%,rgba(77,145,158,.24),transparent_42%),linear-gradient(120deg,rgba(54,27,21,.96),rgba(28,17,16,.92))] p-6 shadow-[0_18px_48px_rgba(0,0,0,.35)] sm:p-8">
+              <div className="absolute -right-12 -top-20 h-64 w-64 rounded-full border border-[#e4aa56]/10" />
+              <div className="absolute -right-2 -top-10 h-44 w-44 rounded-full border border-[#e4aa56]/10" />
+              <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
+                <div className="max-w-2xl">
+                  <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#e4aa56]/25 bg-black/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.18em] text-[#e8c783]">
+                    <span className={`h-2 w-2 rounded-full ${simLive && !simLive.done ? "animate-pulse bg-emerald-400" : "bg-[#e4aa56]"}`} />
+                    {simLive && !simLive.done ? "Simulation live" : "Resilience command center"}
+                  </div>
+                  <h2 className="font-heading text-3xl font-normal tracking-tight text-white sm:text-4xl">Test the response before the crisis.</h2>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-[#eadfc8]/75">Run a city-scale scenario, follow its impact as it unfolds, and learn which response keeps Ithaca standing.</p>
+                </div>
+                <button onClick={openSimulator} className="shrink-0 rounded-xl bg-[#e4aa56] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#25130d] shadow-lg transition hover:bg-[#f0bd70]">Open 3D simulator <span aria-hidden="true">↗</span></button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              <SimMetric label="Monitored assets" value={allComponents.length || "—"} detail={`${health}% operational readiness`} mark="◇" color="#63c8a2" />
+              <SimMetric label="Active incidents" value={activeIncidents.length} detail={`${incidents.length} total recorded`} mark="!" color={activeIncidents.length ? "#fb8066" : "#63c8a2"} />
+              <SimMetric label="Scenarios covered" value={`${coveredScenarios}/4`} detail={simHistory.length ? `${simHistory.length} saved simulation${simHistory.length === 1 ? "" : "s"}` : "Save a run to build coverage"} mark="⌁" color="#70bfd1" />
+              <SimMetric label="Containment rate" value={containmentRate === null ? "—" : `${containmentRate}%`} detail={simHistory.length ? `${containedRuns} of ${simHistory.length} runs contained` : "Based on saved runs"} mark="✓" color="#e4aa56" />
+            </div>
+
+            <div className="grid items-start gap-5 xl:grid-cols-[1.35fr_.85fr]">
+              <Card title="Live insights" subtitle={simLive ? `${simLive.scenarioTitle} · ${simLive.phase}` : "Streaming directly from the 3D crisis simulator"}>
+                {simLive ? <div>
+                  <div className="grid gap-4 sm:grid-cols-[.7fr_1.3fr]">
+                    <div className="rounded-2xl border border-white/[.07] bg-black/20 p-4">
+                      <p className="text-[10px] uppercase tracking-[.16em] text-[#d8ccb0]/60">Current severity</p>
+                      <div className="mt-2 flex items-end gap-2"><p className="text-5xl font-semibold tracking-tight">{Math.round(simLive.severity)}</p><span className="pb-1 text-xs text-[#d8ccb0]/60">/ 100</span></div>
+                      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full transition-all ${simLive.severity < 15 ? "bg-emerald-400" : simLive.severity < 35 ? "bg-amber-400" : simLive.severity < 60 ? "bg-orange-400" : "bg-red-400"}`} style={{ width: `${Math.max(0, Math.min(100, simLive.severity))}%` }} /></div>
+                      <p className="mt-3 text-[11px] text-[#d8ccb0]/70">{simLive.clock} <span className="mx-1">·</span> {simLive.playing ? "Scenario in progress" : simLive.done ? "Scenario complete" : "Simulation paused"}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/[.07] bg-black/20 p-4"><div className="flex items-center justify-between"><p className="text-[10px] uppercase tracking-[.16em] text-[#d8ccb0]/60">Severity trend</p><span className="text-[10px] text-[#d8ccb0]/50">Live telemetry</span></div>{simCurve.length > 1 ? <SeverityChart values={simCurve} /> : <div className="mt-3 grid h-16 place-items-center rounded-lg bg-black/20 text-[11px] text-[#d8ccb0]/55">Collecting first telemetry points…</div>}</div>
+                  </div>
+                  {simLive.kpis.length > 0 && <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{simLive.kpis.map((k) => <div key={k.label} className="rounded-xl border border-white/[.06] bg-white/[.035] p-3"><p className="text-xl font-semibold">{k.value}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-[#d8ccb0]/60">{k.label}</p></div>)}</div>}
+                  {simFinished && <p className="mt-4 rounded-xl border border-[#e4aa56]/20 bg-[#e4aa56]/[.07] p-3 text-xs leading-5 text-[#eadfc8]/80">{simFinished.outcomeText} <span className="text-[#e8c783]">Save to history in the simulator to keep this run.</span></p>}
+                </div> : <div className="grid min-h-48 place-items-center rounded-2xl border border-dashed border-[#c9a24b]/25 bg-black/10 px-6 py-8 text-center"><div><span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-[#e4aa56]/20 bg-[#e4aa56]/[.08] text-xl text-[#e4aa56]">⌁</span><p className="mt-4 text-sm font-semibold text-white">Your command view is ready</p><p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-[#d8ccb0]/65">Start any scenario in the 3D simulator. Severity, phase, and city impact will appear here in real time.</p><button onClick={openSimulator} className="mt-4 text-xs font-semibold text-[#e8c783] hover:text-white">Launch a scenario ↗</button></div></div>}
+              </Card>
+
+              <Card title="Scenario library" subtitle="Four ways to stress-test Ithaca">
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                  {scenarios.map((scenario) => {
+                    const runs = simHistory.filter((run) => run.scenario === scenario.id).length;
+                    return <button key={scenario.id} onClick={openSimulator} className="group flex min-h-[98px] items-center gap-3 rounded-2xl border border-white/[.07] bg-white/[.035] p-3 text-left transition hover:border-[#e4aa56]/40 hover:bg-white/[.07]">
+                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg" style={{ color: scenario.color, backgroundColor: `${scenario.color}16` }}>{scenario.mark}</span>
+                      <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-white">{scenario.title}</span><span className="mt-1 block text-[10px] leading-4 text-[#d8ccb0]/60">{scenario.note}</span><span className="mt-1.5 block text-[9px] uppercase tracking-wider text-[#d8ccb0]/45">{runs} saved {runs === 1 ? "run" : "runs"}</span></span>
+                      <span className="text-[#d8ccb0]/35 transition group-hover:translate-x-0.5 group-hover:text-[#e8c783]">↗</span>
                     </button>;
                   })}
-                </div> : <EmptyActivity />}
+                </div>
               </Card>
-              {selectedRun ? <RunOverview run={selectedRun} onClose={() => setSelectedRunId(null)} /> : selected && <>
+            </div>
+
+            <div className="grid items-start gap-5 xl:grid-cols-[.9fr_1.1fr]">
+              <Card title="Simulation history" subtitle={simDbConnected === false ? "Database unavailable" : `${simHistory.length} saved run${simHistory.length === 1 ? "" : "s"}`} action="Refresh" onAction={loadSimHistory}>
+                <div className="flex max-h-[410px] flex-col gap-2 overflow-y-auto pr-1">
+                  {simHistory.length ? simHistory.map((h, i) => (
+                    <button key={h.runId ?? i} onClick={() => { setSelectedRunId(h.runId ?? String(i)); setSelectedIncidentId(null); }} className={`w-full rounded-xl p-3 text-left transition ${selectedRunId === (h.runId ?? String(i)) ? "border border-[#e4aa56]/70 bg-[#4a1f14]" : "border border-transparent bg-white/[.04] hover:bg-white/[.09]"}`}>
+                      <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{h.scenarioTitle}</span><span className="shrink-0 text-[10px] text-[#d8ccb0]/60">{h.endedAt ? new Date(h.endedAt).toLocaleDateString() : ""}</span></div>
+                      <p className="mt-1 text-[11px] text-[#d8ccb0]/65">{h.options?.o1Label} · {h.options?.o2Label}</p>
+                      <div className="mt-2 flex items-center justify-between gap-2"><span className={`text-[10px] ${h.outcome === "good" ? "text-emerald-300" : "text-amber-300"}`}>{h.outcome === "good" ? "Contained" : "Escalated"} · peak severity {Math.round(h.maxSeverity)}</span><span className="text-[10px] text-[#d8ccb0]/45">View run →</span></div>
+                    </button>
+                  )) : <p className="py-8 text-center text-xs leading-5 text-[#d8ccb0]/60">{simDbConnected === false ? "Could not reach the database." : "No saved runs yet. Complete a scenario and save it in the simulator to build your history."}</p>}
+                </div>
+              </Card>
+              {selectedRun ? <RunOverview run={selectedRun} onClose={() => setSelectedRunId(null)} /> : selected ? <div className="space-y-5">
+                <Card title="Incident response" subtitle="Select an incident to inspect its city impact">
+                  <div className="flex max-h-[205px] flex-col gap-2 overflow-y-auto pr-1">
+                    {incidents.length ? incidents.map((inc) => {
+                      const on = selected?.incidentId === inc.incidentId;
+                      return <button key={inc.incidentId} onClick={() => { setSelectedIncidentId(inc.incidentId); setSelectedRunId(null); }} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${on ? "border-[#e4aa56]/70 bg-[#4a1f14]" : "border-[#c9a24b]/20 bg-white/[.03] hover:bg-white/[.08]"}`}>
+                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${inc.severity === "critical" ? "bg-red-400" : inc.severity === "major" ? "bg-orange-500" : "bg-amber-400"}`} />
+                        <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold capitalize">{inc.incidentType.replace(/_/g, " ")}</span><span className="block truncate text-[10px] text-[#d8ccb0]/60">{inc.componentId} · {inc.incidentStatus}</span></span>
+                        <span className="text-[9px] uppercase tracking-wider text-[#d8ccb0]/55">{inc.severity}</span>
+                      </button>;
+                    }) : <EmptyActivity />}
+                  </div>
+                </Card>
                 <IncidentOverview incident={selected} components={allComponents} />
                 {selected.incidentStatus !== "resolved" && <RecoveryWorkbench
                   key={selected.incidentId}
@@ -595,45 +670,8 @@ export function AdminDashboard() {
                     setToast(result.incidentResolved ? "Restoration verified · incident resolved" : `Recovery progress saved · ${result.repair.repairStatus.replace(/_/g, " ")}`);
                   }}
                 />}
-                {selected.incidentStatus === "resolved" && <RecoveryWorkbench
-                  key={selected.incidentId}
-                  incident={selected}
-                  origin={allComponents.find((component) => component.id === selected.componentId)}
-                  onSaved={() => undefined}
-                />}
-              </>}
-            </div>
-            <div className="flex flex-col gap-5">
-              <Card title="3D crisis simulator" subtitle="Opens full-screen in its own window">
-                <p className="text-xs leading-6 text-[#d8ccb0]/70">Set off a disaster, watch the city react in 3D, then press <b className="text-[#e4aa56]">Save to history</b> inside the simulator when it&apos;s done. The save shows up on this dashboard the moment it succeeds.</p>
-                <a href="/simulator/index.html" target="_blank" className="mt-4 block w-full rounded-xl bg-[#4a1f14] px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-white">Open 3D Simulator ↗</a>
-              </Card>
-              <Card title="Live insights" subtitle={simLive ? simLive.scenarioTitle : "Waiting for a simulation"}>
-                {simLive ? (
-                  <div>
-                    <div className="flex items-center justify-between text-xs text-[#d8ccb0]/70">
-                      <span>{simLive.clock} · {simLive.phase}</span>
-                      <span className={`rounded-full px-2 py-1 text-[10px] uppercase ${simLive.severity < 15 ? "bg-emerald-400/15 text-emerald-300" : simLive.severity < 35 ? "bg-amber-400/15 text-amber-300" : simLive.severity < 60 ? "bg-orange-400/15 text-orange-300" : "bg-red-400/15 text-red-300"}`}>Severity {simLive.severity}</span>
-                    </div>
-                    {simCurve.length > 1 && <SeverityChart values={simCurve} />}
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      {simLive.kpis.map((k) => <div key={k.label} className="rounded-xl bg-white/[.04] p-3 text-center"><p className="text-lg font-semibold">{k.value}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-[#d8ccb0]/70">{k.label}</p></div>)}
-                    </div>
-                    {simFinished && <p className="mt-3 text-[11px] text-[#d8ccb0]/70">{simFinished.outcomeText} Press Save to history in the simulator to keep this run.</p>}
-                  </div>
-                ) : <p className="text-xs leading-6 text-[#d8ccb0]/70">No simulation running right now. Open the 3D simulator and set off a disaster — KPIs, severity and the final outcome will stream in here live.</p>}
-              </Card>
-              <Card title="Simulation history" subtitle={simDbConnected === false ? "Database unavailable" : `${simHistory.length} saved run(s)`} action="Refresh" onAction={loadSimHistory}>
-              <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto">
-                {simHistory.length ? simHistory.map((h, i) => (
-                  <button key={h.runId ?? i} onClick={() => setSelectedRunId(h.runId ?? String(i))} className={`w-full rounded-xl p-3 text-left transition ${selectedRunId === (h.runId ?? String(i)) ? "border border-[#e4aa56]/70 bg-[#4a1f14]" : "border border-transparent bg-white/[.04] hover:bg-white/[.09]"}`}>
-                    <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{h.scenarioTitle}</span><span className="text-[10px] text-[#d8ccb0]/70">{h.endedAt ? new Date(h.endedAt).toLocaleString() : ""}</span></div>
-                    <p className="mt-1 text-[11px] text-[#d8ccb0]/70">{h.options?.o1Label} · {h.options?.o2Label}</p>
-                    <p className={`mt-1 text-[11px] ${h.outcome === "good" ? "text-emerald-300" : "text-amber-300"}`}>{h.outcomeText}</p>
-                  </button>
-                )) : <p className="py-6 text-center text-xs text-[#d8ccb0]/70">{simDbConnected === false ? "Could not reach the database." : "No simulations saved yet. Finish and save a run in the simulator to see it here."}</p>}
-              </div>
-            </Card>
+                {selected.incidentStatus === "resolved" && <RecoveryWorkbench key={selected.incidentId} incident={selected} origin={allComponents.find((component) => component.id === selected.componentId)} onSaved={() => undefined} />}
+              </div> : <Card title="Incident response" subtitle="Live operational context"><EmptyActivity /></Card>}
             </div>
           </section>
           );
@@ -645,6 +683,7 @@ export function AdminDashboard() {
   );
 }
 
+function SimMetric({ label, value, detail, mark, color }: { label: string; value: string | number; detail: string; mark: string; color: string }) { return <article className="rounded-2xl border border-[#c9a24b]/20 bg-[#1f100d]/55 p-4 shadow-[0_10px_34px_rgba(0,0,0,.24)] sm:p-5"><div className="flex items-start justify-between gap-2"><p className="text-[11px] font-medium text-[#d8ccb0]/65">{label}</p><span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-sm" style={{ color, backgroundColor: `${color}16` }}>{mark}</span></div><p className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">{value}</p><p className="mt-1.5 truncate text-[10px] text-[#d8ccb0]/55">{detail}</p></article>; }
 function Kpi({ label, value, change, glyph, color, onClick }: { label: string; value: string | number; change: string; glyph: string; color: string; onClick?: () => void }) { return <article onClick={onClick} className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md rounded-2xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] p-4 shadow-[0_10px_34px_rgba(0,0,0,.4)] sm:p-5"><div className="flex items-start justify-between"><p className="text-[12px] font-medium text-[#d8ccb0]/70">{label}</p><span className="grid h-9 w-9 place-items-center rounded-xl text-base" style={{ color, backgroundColor: `${color}12` }}>{glyph}</span></div><p className="mt-3 text-3xl font-semibold tracking-tight">{value}</p><p className="mt-2 text-[11px] text-[#d8ccb0]/70">{change}</p></article>; }
 function Card({ title, subtitle, action, onAction, children }: { title: string; subtitle: string; action?: string; onAction?: () => void; children: React.ReactNode }) { return <article className="rounded-2xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] p-5 shadow-[0_10px_34px_rgba(0,0,0,.4)]"><header className="mb-5 flex items-start justify-between gap-3"><div><h2 className="font-heading text-lg font-normal text-white">{title}</h2><p className="mt-1 text-[12px] text-[#d8ccb0]/70">{subtitle}</p></div>{action && <button onClick={onAction} className="rounded-lg border border-[#c9a24b]/25 px-3 py-2 text-[11px] text-[#d8ccb0]/70 hover:bg-white/10 print:hidden">{action}</button>}</header>{children}</article>; }
 function SeverityChart({ values }: { values: number[] }) {
