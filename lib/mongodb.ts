@@ -17,13 +17,14 @@ function createClientPromise(): Promise<MongoClient> {
 }
 
 function getClientPromise(): Promise<MongoClient> {
-  if (process.env.NODE_ENV === "development") {
-    if (!global._mongoClientPromise) {
-      global._mongoClientPromise = createClientPromise();
-    }
-    return global._mongoClientPromise;
+  if (!global._mongoClientPromise) {
+    global._mongoClientPromise = createClientPromise().catch((error) => {
+      // A failed connection should not poison a warm serverless process forever.
+      global._mongoClientPromise = undefined;
+      throw error;
+    });
   }
-  return createClientPromise();
+  return global._mongoClientPromise;
 }
 
 export async function getDb(): Promise<Db> {
