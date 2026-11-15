@@ -92,16 +92,17 @@ export function RecoveryWorkbench({
   const nextStage = STAGES[Math.min(stageIndex + 1, STAGES.length - 1)];
 
   return (
-    <article className="rounded-2xl border border-[#c9a24b]/25 bg-[#1f100d]/55 p-5 shadow-[0_10px_34px_rgba(0,0,0,.4)]">
-      <header className="mb-4 flex items-start justify-between gap-3">
+    <article className="paper overflow-hidden rounded-2xl border border-[#6b4220]/70">
+      <header className="paper-head flex flex-wrap items-start justify-between gap-x-4 gap-y-2.5 bg-[#6b0f1a] px-5 py-3.5">
         <div>
-          <h2 className="font-heading text-lg font-normal text-white">Recovery workbench</h2>
-          <p className="mt-1 text-[12px] text-[#d8ccb0]/70">Coordinate field work and verify service restoration.</p>
+          <h2 className="font-heading text-lg font-normal tracking-[.12em] text-[#f6e6c4]">Recovery workbench</h2>
+          <p className="mt-1 text-[12px] text-[#f6e6c4]/65">Coordinate field work and verify service restoration.</p>
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider ${complete ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-300"}`}>
+        <span className={`pill shrink-0 rounded-full bg-[#f6e6c4] font-bold uppercase tracking-wider ${complete ? "text-[#14532d]" : "text-[#6b0f1a]"}`}>
           {complete ? "Verified" : repair ? repair.repairStatus.replace(/_/g, " ") : "Ready"}
         </span>
       </header>
+      <div className="p-5">
 
       <div className="rounded-xl bg-white/[.04] p-3 text-xs">
         <p className="font-semibold">{origin?.name ?? incident.componentId}</p>
@@ -111,7 +112,7 @@ export function RecoveryWorkbench({
       <ol className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {STAGES.map((stage, index) => {
           const passed = stageIndex >= index;
-          return <li key={stage.id} className={`rounded-lg border px-2.5 py-2 text-[10px] ${passed ? "border-[#e4aa56]/50 bg-[#4a1f14]/70 text-[#f1c979]" : "border-white/10 text-[#d8ccb0]/50"}`}>
+          return <li key={stage.id} className={`rounded-lg border px-2.5 py-2 text-[10px] ${passed ? "border-[#6b0f1a] bg-[#6b0f1a]/15 font-bold text-[#6b0f1a]" : "border-[#c9a24b]/35 text-[#d8ccb0]/60"}`}>
             <span className="mr-1.5">{passed ? "✓" : `${index + 1}.`}</span>{stage.label}
           </li>;
         })}
@@ -136,10 +137,11 @@ export function RecoveryWorkbench({
           {repair.verificationStatus === "failed_verification" && <button disabled={saving || loading} onClick={() => void save("repair_in_progress")} className="rounded-lg border border-[#e4aa56]/40 px-3 py-2 text-[10px] text-[#f1c979] disabled:opacity-50">Record follow-up repair</button>}
           {repair.verificationStatus !== "failed_verification" && <button disabled={saving || loading} onClick={() => void save("restored", "failed_verification")} className="rounded-lg border border-red-300/30 px-3 py-2 text-[10px] text-red-200 disabled:opacity-50">Fail check</button>}
           <button disabled={saving || loading} onClick={() => void save("restored", "verified")} className="rounded-lg bg-emerald-400 px-3 py-2 text-[10px] font-semibold text-[#102319] disabled:opacity-50">{saving ? "Saving…" : repair.verificationStatus === "failed_verification" ? "Verify again" : "Verify restoration"}</button>
-        </div> : <button disabled={saving || loading} onClick={() => void save(nextStage?.id ?? "reported")} className="rounded-lg bg-[#e4aa56] px-3.5 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-[#24140e] disabled:opacity-50">
+        </div> : <button disabled={saving || loading} onClick={() => void save(nextStage?.id ?? "reported")} className="rounded-lg bg-[#6b0f1a] px-3.5 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-[#f6e6c4] disabled:opacity-50">
           {saving ? "Saving…" : repair ? `Advance to ${nextStage?.label ?? "next step"}` : "Start recovery"}
         </button>}
       </div>}
+      </div>
     </article>
   );
 }

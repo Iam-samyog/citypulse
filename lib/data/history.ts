@@ -1,4 +1,5 @@
 import type { ComponentCategory, InfrastructureComponent } from "@/types/infrastructure";
+import type { Incident } from "@/types/incident";
 
 /**
  * A deterministic, SIMULATED 180-day operations record for the city of Ithaca.
@@ -171,4 +172,35 @@ export function summarizeHistory(log: PastIncident[]): HistorySummary {
     longestOutage: longest ? { asset: longest.assetName, cause: longest.cause, hours: hours(longest.durationMin) } : null,
     recentLog: [...log].sort((a, b) => a.daysAgo - b.daysAgo).slice(0, 8).map((i) => ({ daysAgo: i.daysAgo, asset: i.assetName, cause: i.cause, severity: i.severity, minutes: i.durationMin })),
   };
+}
+
+/**
+ * Builds the operations record from the incidents actually stored in the database, so the
+ * advisors, charts and Incidents page all talk about the same numbers. Falls back to the
+ * generated record (buildHistory) only when there are too few real incidents to analyse.
+ */
+export function historyFromIncidents(incidents: Incident[], components: InfrastructureComponent[]): PastIncident[] {
+  const byId = new Map(components.map((c) => [c.id, c]));
+  const now = Date.now();
+  return incidents.flatMap((i, n) => {
+    const asset = byId.get(i.componentId);
+    if (!asset) return [];
+    const start = new Date(i.startTime);
+    const daysAgo = Math.max(1, Math.ceil((now - start.getTime()) / 86_400_000));
+    if (daysAgo > HISTORY_DAYS + 1) return [];
+    return [{
+      id: i.incidentId ?? `H-${n}`,
+      daysAgo,
+      hour: start.getHours(),
+      assetId: asset.id,
+      assetName: asset.name,
+      category: asset.category,
+      district: asset.district,
+      cause: i.cause ?? i.incidentType.replace(/_/g, " "),
+      severity: i.severity,
+      durationMin: i.durationMinutes ?? i.estimatedImpact.estimatedRecoveryMinutes,
+      downstreamAssets: i.estimatedImpact.downstreamAffectedCount,
+      populationAffectedPct: i.estimatedImpact.populationExposedPct,
+    }];
+  });
 }

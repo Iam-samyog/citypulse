@@ -9,7 +9,7 @@ import { RecoveryWorkbench } from "@/components/dashboard/RecoveryWorkbench";
 import { SimulatedIncidentGenerator } from "@/components/dashboard/SimulatedIncidentGenerator";
 import { ChatbotWidget } from "@/components/ai/ChatbotWidget";
 import { buildAthenaPrompts, buildOraclePrompts, type QuickData } from "@/lib/ai/quickInsights";
-import { buildHistory, summarizeHistory, HISTORY_DAYS } from "@/lib/data/history";
+import { buildHistory, historyFromIncidents, summarizeHistory, HISTORY_DAYS } from "@/lib/data/history";
 import { districts } from "@/lib/seed/infrastructure";
 import type { Incident } from "@/types/incident";
 import type { InfrastructureComponent, InfrastructureDependency } from "@/types/infrastructure";
@@ -78,9 +78,12 @@ export function AdminDashboard() {
   const [simCurve, setSimCurve] = useState<number[]>([]);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [incStatus, setIncStatus] = useState<"all" | "open" | "resolved">("all");
+  const [incSeverity, setIncSeverity] = useState<"all" | "critical" | "major" | "moderate" | "minor">("all");
+  const [incLimit, setIncLimit] = useState(20);
 
   const loadSimHistory = () => {
-    fetch("/api/simulator-history?limit=20").then(async (r) => r.json()).then((data) => {
+    fetch("/api/simulator-history?limit=60").then(async (r) => r.json()).then((data) => {
       setSimDbConnected(data.connected !== false);
       setSimHistory(data.items ?? []);
     }).catch(() => setSimDbConnected(false));
@@ -169,7 +172,8 @@ export function AdminDashboard() {
   const health = scoped.length ? Math.round((statusCounts.operational / scoped.length) * 100) : 0;
 
   /** Compact, citywide snapshot handed to Gemini for the Athena and Oracle advisors. */
-  const history = useMemo(() => buildHistory(allComponents), [allComponents]);
+  // Real stored incidents when there are enough to analyse; otherwise a generated record.
+  const history = useMemo(() => incidents.length >= 30 ? historyFromIncidents(incidents, allComponents) : buildHistory(allComponents), [incidents, allComponents]);
   const historySummary = useMemo(() => summarizeHistory(history), [history]);
   const districtHistory = useMemo(() => district ? summarizeHistory(history.filter((i) => i.district === district)) : null, [history, district]);
   const focusAssets = district ? allComponents.filter((c) => c.district === district) : allComponents;
@@ -191,7 +195,8 @@ export function AdminDashboard() {
     });
     const ids = new Set(focusAssets.map((c) => c.id));
     const depsWithBackup = dependencies.filter((d) => d.hasBackup).length;
-    const incView = (list: Incident[]) => list.slice(0, 8).map((i) => ({
+    // Open incidents first — they are what the advisors should talk about — then the most recent.
+    const incView = (list: Incident[]) => [...list].sort((a, b) => Number(b.incidentStatus !== "resolved") - Number(a.incidentStatus !== "resolved") || b.startTime.localeCompare(a.startTime)).slice(0, 8).map((i) => ({
       type: i.incidentType, severity: i.severity, status: i.incidentStatus, startedAt: i.startTime,
       origin: byId.get(i.componentId)?.name ?? i.componentId,
       failedAtSource: i.estimatedImpact.directlyFailedCount, downstreamAffected: i.estimatedImpact.downstreamAffectedCount,
@@ -530,13 +535,29 @@ export function AdminDashboard() {
           </tbody></table></div>
         </Card>}
 
-        {active === "Incidents" && <>
+        {active === "Incidents" && (() => {
+          const rows = scopedIncidents.filter((i) => (incStatus === "all" || (incStatus === "open" ? i.incidentStatus !== "resolved" : i.incidentStatus === "resolved")) && (incSeverity === "all" || i.severity === incSeverity));
+          const chip = (on: boolean) => `rounded-full border px-3 py-1 text-[11px] uppercase tracking-wider transition ${on ? "border-[#e4aa56]/70 bg-[#4a1f14] text-white" : "border-[#c9a24b]/25 bg-white/[.03] text-[#d8ccb0]/70 hover:bg-white/10"}`;
+          return (
+            <>
           <SimulatedIncidentGenerator onGenerated={(created) => {
             setIncidents((current) => [...created, ...current].sort((a, b) => b.startTime.localeCompare(a.startTime)));
             setToast(`${created.length} simulated historical incidents added`);
           }} />
-          <Card title="Incidents" subtitle={`${scopedIncidents.length} recorded · ${activeIncidents.length} active`}><IncidentList incidents={scopedIncidents} /></Card>
-        </>}
+            <Card title="Incidents" subtitle={`${scopedIncidents.length} recorded · ${activeIncidents.length} open · click one for its overview`}>
+              <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
+                {(["all", "open", "resolved"] as const).map((v) => <button key={v} onClick={() => { setIncStatus(v); setIncLimit(20); }} className={chip(incStatus === v)}>{v}</button>)}
+                <span className="mx-1 h-4 w-px bg-white/15" />
+                {(["all", "critical", "major", "moderate", "minor"] as const).map((v) => <button key={v} onClick={() => { setIncSeverity(v); setIncLimit(20); }} className={chip(incSeverity === v)}>{v}</button>)}
+                <span className="ml-auto text-[11px] text-[#d8ccb0]/60">{rows.length} shown</span>
+              </div>
+              <IncidentList incidents={rows.slice(0, incLimit)} onSelect={(id) => { setSelectedIncidentId(id); setSelectedRunId(null); setActive("Simulator"); }} />
+              {rows.length > incLimit && <div className="mt-5 text-center print:hidden"><button onClick={() => setIncLimit((n) => n + 30)} className="scroll-btn text-xs uppercase tracking-wider">Show more · {rows.length - incLimit} left</button></div>}
+              {rows.length === 0 && incidents.length > 0 && <p className="py-8 text-center text-xs text-[#d8ccb0]/70">No incidents match these filters.</p>}
+            </Card>
+            </>
+          );
+        })()}
 
         {active === "Advisors" && (
           <>
@@ -598,8 +619,8 @@ export function AdminDashboard() {
               <SimMetric label="Containment rate" value={containmentRate === null ? "—" : `${containmentRate}%`} detail={simHistory.length ? `${containedRuns} of ${simHistory.length} runs contained` : "Based on saved runs"} mark="✓" color="#e4aa56" />
             </div>
 
-            <div className="grid items-start gap-5 xl:grid-cols-[1.35fr_.85fr]">
-              <Card title="Live insights" subtitle={simLive ? `${simLive.scenarioTitle} · ${simLive.phase}` : "Streaming directly from the 3D crisis simulator"}>
+            <div className="grid items-stretch gap-5 xl:grid-cols-[1.35fr_.85fr]">
+              <Card paper title="Live insights" subtitle={simLive ? `${simLive.scenarioTitle} · ${simLive.phase}` : "Streaming directly from the 3D crisis simulator"}>
                 {simLive ? <div>
                   <div className="grid gap-4 sm:grid-cols-[.7fr_1.3fr]">
                     <div className="rounded-2xl border border-white/[.07] bg-black/20 p-4">
@@ -612,10 +633,10 @@ export function AdminDashboard() {
                   </div>
                   {simLive.kpis.length > 0 && <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{simLive.kpis.map((k) => <div key={k.label} className="rounded-xl border border-white/[.06] bg-white/[.035] p-3"><p className="text-xl font-semibold">{k.value}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-[#d8ccb0]/60">{k.label}</p></div>)}</div>}
                   {simFinished && <p className="mt-4 rounded-xl border border-[#e4aa56]/20 bg-[#e4aa56]/[.07] p-3 text-xs leading-5 text-[#eadfc8]/80">{simFinished.outcomeText} <span className="text-[#e8c783]">Save to history in the simulator to keep this run.</span></p>}
-                </div> : <div className="grid min-h-48 place-items-center rounded-2xl border border-dashed border-[#c9a24b]/25 bg-black/10 px-6 py-8 text-center"><div><span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-[#e4aa56]/20 bg-[#e4aa56]/[.08] text-xl text-[#e4aa56]">⌁</span><p className="mt-4 text-sm font-semibold text-white">Your command view is ready</p><p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-[#d8ccb0]/65">Start any scenario in the 3D simulator. Severity, phase, and city impact will appear here in real time.</p><button onClick={openSimulator} className="mt-4 text-xs font-semibold text-[#e8c783] hover:text-white">Launch a scenario ↗</button></div></div>}
+                </div> : <div className="grid min-h-48 flex-1 place-items-center rounded-2xl border border-dashed border-[#c9a24b]/25 bg-black/10 px-6 py-8 text-center"><div><span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-[#e4aa56]/20 bg-[#e4aa56]/[.08] text-xl text-[#e4aa56]">⌁</span><p className="mt-4 text-sm font-semibold text-white">Your command view is ready</p><p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-[#d8ccb0]/65">Start any scenario in the 3D simulator. Severity, phase, and city impact will appear here in real time.</p><button onClick={openSimulator} className="mt-4 text-sm font-bold text-[#6b0f1a] underline underline-offset-4 hover:text-black">Launch a scenario ↗</button></div></div>}
               </Card>
 
-              <Card title="Scenario library" subtitle="Four ways to stress-test Ithaca">
+              <Card paper title="Scenario library" subtitle="Four ways to stress-test Ithaca">
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                   {scenarios.map((scenario) => {
                     const runs = simHistory.filter((run) => run.scenario === scenario.id).length;
@@ -630,10 +651,11 @@ export function AdminDashboard() {
             </div>
 
             <div className="grid items-start gap-5 xl:grid-cols-[.9fr_1.1fr]">
-              <Card title="Simulation history" subtitle={simDbConnected === false ? "Database unavailable" : `${simHistory.length} saved run${simHistory.length === 1 ? "" : "s"}`} action="Refresh" onAction={loadSimHistory}>
+              <div className="space-y-5">
+              <Card paper title="Simulation history" subtitle={simDbConnected === false ? "Database unavailable" : `${simHistory.length} saved run${simHistory.length === 1 ? "" : "s"}`} action="Refresh" onAction={loadSimHistory}>
                 <div className="flex max-h-[410px] flex-col gap-2 overflow-y-auto pr-1">
                   {simHistory.length ? simHistory.map((h, i) => (
-                    <button key={h.runId ?? i} onClick={() => { setSelectedRunId(h.runId ?? String(i)); setSelectedIncidentId(null); }} className={`w-full rounded-xl p-3 text-left transition ${selectedRunId === (h.runId ?? String(i)) ? "border border-[#e4aa56]/70 bg-[#4a1f14]" : "border border-transparent bg-white/[.04] hover:bg-white/[.09]"}`}>
+                    <button key={h.runId ?? i} onClick={() => { setSelectedRunId(h.runId ?? String(i)); setSelectedIncidentId(null); }} className={`w-full rounded-xl p-3 text-left transition ${selectedRunId === (h.runId ?? String(i)) ? "border border-[#6b0f1a] bg-[#6b0f1a]/20" : "border border-transparent bg-white/[.04] hover:bg-white/[.09]"}`}>
                       <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{h.scenarioTitle}</span><span className="shrink-0 text-[10px] text-[#d8ccb0]/60">{h.endedAt ? new Date(h.endedAt).toLocaleDateString() : ""}</span></div>
                       <p className="mt-1 text-[11px] text-[#d8ccb0]/65">{h.options?.o1Label} · {h.options?.o2Label}</p>
                       <div className="mt-2 flex items-center justify-between gap-2"><span className={`text-[10px] ${h.outcome === "good" ? "text-emerald-300" : "text-amber-300"}`}>{h.outcome === "good" ? "Contained" : "Escalated"} · peak severity {Math.round(h.maxSeverity)}</span><span className="text-[10px] text-[#d8ccb0]/45">View run →</span></div>
@@ -641,20 +663,7 @@ export function AdminDashboard() {
                   )) : <p className="py-8 text-center text-xs leading-5 text-[#d8ccb0]/60">{simDbConnected === false ? "Could not reach the database." : "No saved runs yet. Complete a scenario and save it in the simulator to build your history."}</p>}
                 </div>
               </Card>
-              {selectedRun ? <RunOverview run={selectedRun} onClose={() => setSelectedRunId(null)} /> : selected ? <div className="space-y-5">
-                <Card title="Incident response" subtitle="Select an incident to inspect its city impact">
-                  <div className="flex max-h-[205px] flex-col gap-2 overflow-y-auto pr-1">
-                    {incidents.length ? incidents.map((inc) => {
-                      const on = selected?.incidentId === inc.incidentId;
-                      return <button key={inc.incidentId} onClick={() => { setSelectedIncidentId(inc.incidentId); setSelectedRunId(null); }} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${on ? "border-[#e4aa56]/70 bg-[#4a1f14]" : "border-[#c9a24b]/20 bg-white/[.03] hover:bg-white/[.08]"}`}>
-                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${inc.severity === "critical" ? "bg-red-400" : inc.severity === "major" ? "bg-orange-500" : "bg-amber-400"}`} />
-                        <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold capitalize">{inc.incidentType.replace(/_/g, " ")}</span><span className="block truncate text-[10px] text-[#d8ccb0]/60">{inc.componentId} · {inc.incidentStatus}</span></span>
-                        <span className="text-[9px] uppercase tracking-wider text-[#d8ccb0]/55">{inc.severity}</span>
-                      </button>;
-                    }) : <EmptyActivity />}
-                  </div>
-                </Card>
-                <IncidentOverview incident={selected} components={allComponents} />
+              {!selectedRun && selected && <>
                 {selected.incidentStatus !== "resolved" && <RecoveryWorkbench
                   key={selected.incidentId}
                   incident={selected}
@@ -671,7 +680,23 @@ export function AdminDashboard() {
                   }}
                 />}
                 {selected.incidentStatus === "resolved" && <RecoveryWorkbench key={selected.incidentId} incident={selected} origin={allComponents.find((component) => component.id === selected.componentId)} onSaved={() => undefined} />}
-              </div> : <Card title="Incident response" subtitle="Live operational context"><EmptyActivity /></Card>}
+              </>}
+              </div>
+              {selectedRun ? <RunOverview run={selectedRun} onClose={() => setSelectedRunId(null)} /> : selected ? <div className="space-y-5">
+                <Card paper title="Incident response" subtitle="Select an incident to inspect its city impact">
+                  <div className="flex max-h-[205px] flex-col gap-2 overflow-y-auto pr-1">
+                    {incidents.length ? incidents.map((inc) => {
+                      const on = selected?.incidentId === inc.incidentId;
+                      return <button key={inc.incidentId} onClick={() => { setSelectedIncidentId(inc.incidentId); setSelectedRunId(null); }} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${on ? "border-[#6b0f1a] bg-[#6b0f1a]/20" : "border-[#c9a24b]/20 bg-white/[.03] hover:bg-white/[.08]"}`}>
+                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${inc.severity === "critical" ? "bg-red-400" : inc.severity === "major" ? "bg-orange-500" : "bg-amber-400"}`} />
+                        <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold capitalize">{inc.incidentType.replace(/_/g, " ")}</span><span className="block truncate text-[10px] text-[#d8ccb0]/60">{inc.componentId} · {inc.incidentStatus}</span></span>
+                        <span className="text-[9px] uppercase tracking-wider text-[#d8ccb0]/55">{inc.severity}</span>
+                      </button>;
+                    }) : <EmptyActivity />}
+                  </div>
+                </Card>
+                <IncidentOverview incident={selected} components={allComponents} />
+              </div> : <Card paper title="Incident response" subtitle="Live operational context"><EmptyActivity /></Card>}
             </div>
           </section>
           );
@@ -685,7 +710,17 @@ export function AdminDashboard() {
 
 function SimMetric({ label, value, detail, mark, color }: { label: string; value: string | number; detail: string; mark: string; color: string }) { return <article className="rounded-2xl border border-[#c9a24b]/20 bg-[#1f100d]/55 p-4 shadow-[0_10px_34px_rgba(0,0,0,.24)] sm:p-5"><div className="flex items-start justify-between gap-2"><p className="text-[11px] font-medium text-[#d8ccb0]/65">{label}</p><span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-sm" style={{ color, backgroundColor: `${color}16` }}>{mark}</span></div><p className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">{value}</p><p className="mt-1.5 truncate text-[10px] text-[#d8ccb0]/55">{detail}</p></article>; }
 function Kpi({ label, value, change, glyph, color, onClick }: { label: string; value: string | number; change: string; glyph: string; color: string; onClick?: () => void }) { return <article onClick={onClick} className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md rounded-2xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] p-4 shadow-[0_10px_34px_rgba(0,0,0,.4)] sm:p-5"><div className="flex items-start justify-between"><p className="text-[12px] font-medium text-[#d8ccb0]/70">{label}</p><span className="grid h-9 w-9 place-items-center rounded-xl text-base" style={{ color, backgroundColor: `${color}12` }}>{glyph}</span></div><p className="mt-3 text-3xl font-semibold tracking-tight">{value}</p><p className="mt-2 text-[11px] text-[#d8ccb0]/70">{change}</p></article>; }
-function Card({ title, subtitle, action, onAction, children }: { title: string; subtitle: string; action?: string; onAction?: () => void; children: React.ReactNode }) { return <article className="rounded-2xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] p-5 shadow-[0_10px_34px_rgba(0,0,0,.4)]"><header className="mb-5 flex items-start justify-between gap-3"><div><h2 className="font-heading text-lg font-normal text-white">{title}</h2><p className="mt-1 text-[12px] text-[#d8ccb0]/70">{subtitle}</p></div>{action && <button onClick={onAction} className="rounded-lg border border-[#c9a24b]/25 px-3 py-2 text-[11px] text-[#d8ccb0]/70 hover:bg-white/10 print:hidden">{action}</button>}</header>{children}</article>; }
+function Card({ title, subtitle, action, onAction, paper, children }: { title: string; subtitle: string; action?: string; onAction?: () => void; /** Parchment paper with a crimson heading bar, like the advisor chat. */ paper?: boolean; children: React.ReactNode }) {
+  return (
+    <article className={`rounded-2xl border ${paper ? "paper flex flex-col overflow-hidden border-[#6b4220]/70" : "border-[#c9a24b]/25 bg-[#1f100d]/55 p-5 backdrop-blur-[3px] shadow-[0_10px_34px_rgba(0,0,0,.4)]"}`}>
+      <header className={`flex items-start justify-between gap-3 ${paper ? "paper-head bg-[#6b0f1a] px-5 py-3.5" : "mb-5"}`}>
+        <div><h2 className={`font-heading font-normal ${paper ? "text-lg tracking-[.12em] text-[#f6e6c4]" : "text-lg text-white"}`}>{title}</h2><p className={`mt-1 text-[12px] ${paper ? "text-[#f6e6c4]/65" : "text-[#d8ccb0]/70"}`}>{subtitle}</p></div>
+        {action && <button onClick={onAction} className="rounded-lg border border-[#c9a24b]/25 px-3 py-2 text-[11px] text-[#d8ccb0]/70 hover:bg-white/10 print:hidden">{action}</button>}
+      </header>
+      {paper ? <div className="flex flex-1 flex-col p-5">{children}</div> : children}
+    </article>
+  );
+}
 function SeverityChart({ values }: { values: number[] }) {
   const w = 300, h = 64, max = 100;
   const points = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - (Math.min(v, max) / max) * (h - 6) - 3}`).join(" ");
@@ -707,9 +742,9 @@ function CategoryBars({ counts }: { counts: Record<keyof typeof CATEGORY, number
   const max = Math.max(...Object.values(counts), 1);
   return <div className="space-y-4">{(Object.entries(CATEGORY) as [keyof typeof CATEGORY, typeof CATEGORY[keyof typeof CATEGORY]][]).map(([key, meta]) => <div key={key} className="grid grid-cols-[115px_1fr_28px] items-center gap-3"><span className="text-xs text-[#d8ccb0]/70">{meta.label}</span><div className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${(counts[key] / max) * 100}%`, backgroundColor: meta.color }} /></div><span className="text-right text-xs font-semibold">{counts[key] || "—"}</span></div>)}</div>;
 }
-function IncidentList({ incidents }: { incidents: Incident[] }) {
+function IncidentList({ incidents, onSelect }: { incidents: Incident[]; onSelect?: (incidentId: string) => void }) {
   if (!incidents.length) return <EmptyActivity />;
-  return <div className="divide-y divide-[#c9a24b]/20">{incidents.map((incident) => <div key={incident.incidentId} className="flex items-start gap-3 py-3"><span className={`mt-1 h-2 w-2 rounded-full ${incident.severity === "critical" ? "bg-red-400" : incident.severity === "major" ? "bg-orange-500" : "bg-amber-400"}`} /><div className="flex-1"><p className="text-xs font-semibold capitalize">{incident.incidentType.replace(/_/g, " ")} <span className="ml-1 rounded-full bg-white/[.07] px-2 py-0.5 text-[10px] font-normal uppercase text-[#d8ccb0]/70">{incident.incidentStatus}</span></p><p className="mt-1 text-[12px] text-[#d8ccb0]/70">{incident.componentId} · {incident.estimatedImpact.downstreamAffectedCount} downstream assets · {incident.estimatedImpact.affectedDistricts.join(", ") || "no districts"}</p></div><span className="text-[11px] text-[#d8ccb0]/70">{new Date(incident.startTime).toLocaleDateString()}</span></div>)}</div>;
+  return <div className="divide-y divide-[#c9a24b]/20">{incidents.map((incident) => <div key={incident.incidentId} onClick={onSelect ? () => onSelect(incident.incidentId) : undefined} className={`flex items-start gap-3 py-3 ${onSelect ? "cursor-pointer rounded-lg px-2 transition hover:bg-white/[.05]" : ""}`}><span className={`mt-1 h-2 w-2 rounded-full ${incident.severity === "critical" ? "bg-red-400" : incident.severity === "major" ? "bg-orange-500" : "bg-amber-400"}`} /><div className="flex-1"><p className="text-xs font-semibold capitalize">{incident.incidentType.replace(/_/g, " ")} <span className="ml-1 rounded-full bg-white/[.07] px-2 py-0.5 text-[10px] font-normal uppercase text-[#d8ccb0]/70">{incident.incidentStatus}</span></p><p className="mt-1 text-[12px] text-[#d8ccb0]/70">{incident.componentId} · {incident.estimatedImpact.downstreamAffectedCount} downstream assets · {incident.estimatedImpact.affectedDistricts.join(", ") || "no districts"}</p></div><span className="text-[11px] text-[#d8ccb0]/70">{new Date(incident.startTime).toLocaleDateString()}</span></div>)}</div>;
 }
 function Donut({ counts, total }: { counts: { operational: number; backup: number; degraded: number; offline: number }; total: number }) { const op = total ? counts.operational / total * 100 : 100; const backup = total ? counts.backup / total * 100 : 0; const degraded = total ? counts.degraded / total * 100 : 0; return <div className="relative h-36 w-36 rounded-full" style={{ background: `conic-gradient(#3a9d76 0 ${op}%, #e8b75f ${op}% ${op + backup}%, #e78452 ${op + backup}% ${op + backup + degraded}%, #da5a5a ${op + backup + degraded}% 100%)` }}><div className="absolute inset-5 grid place-items-center rounded-full bg-[#1f100d]/55 backdrop-blur-[3px] text-center"><div><p className="text-2xl font-semibold">{total || "—"}</p><p className="text-[10px] uppercase tracking-wider text-[#d8ccb0]/70">Assets</p></div></div></div>; }
 function Legend({ color, label, value }: { color: string; label: string; value: number }) { return <div className="flex items-center text-[12px]"><span className="mr-2 h-2 w-2 rounded-full" style={{ backgroundColor: color }} /><span className="text-[#d8ccb0]/70">{label}</span><span className="ml-auto font-semibold">{value}</span></div>; }
@@ -757,7 +792,7 @@ function IncidentOverview({ incident, components }: { incident: Incident; compon
     ["Est. recovery", hrs],
   ];
   return (
-    <Card title="Incident overview" subtitle={incident.incidentId}>
+    <Card paper title="Incident overview" subtitle={incident.incidentId}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold capitalize">{incident.incidentType.replace(/_/g, " ")}</p>
         <span className={`rounded-full bg-white/[.07] px-2.5 py-1 text-[10px] uppercase tracking-wider ${sevColor}`}>{incident.severity}</span>
@@ -787,7 +822,7 @@ function RunOverview({ run, onClose }: { run: SimFinishedRun; onClose: () => voi
   const good = run.outcome === "good";
   const hhmm = (m: number) => `${Math.floor(m / 60)}h ${Math.round(m % 60)}m`;
   return (
-    <Card title="Run overview" subtitle={run.scenarioTitle} action="Close" onAction={onClose}>
+    <Card paper title="Run overview" subtitle={run.scenarioTitle} action="Close" onAction={onClose}>
       <div className="flex items-center justify-between gap-2 text-[11px] text-[#d8ccb0]/70">
         <span>{run.endedAt ? new Date(run.endedAt).toLocaleString() : ""}</span>
         <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider ${good ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-300"}`}>{good ? "Contained" : "Escalated"}</span>
@@ -797,12 +832,12 @@ function RunOverview({ run, onClose }: { run: SimFinishedRun; onClose: () => voi
       <p className="mt-4 text-[10px] uppercase tracking-wider text-[#d8ccb0]/60">Severity over time</p>
       {curve.length > 1 ? (
         <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full rounded-xl bg-black/20" role="img" aria-label="Severity over simulated time">
-          {[0, 25, 50, 75, 100].map((v) => <g key={v}><line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="rgba(255,255,255,.12)" strokeDasharray="3 4" /><text x={L - 6} y={y(v) + 3} textAnchor="end" fontSize="9" fill="rgba(216,204,176,.7)">{v}</text></g>)}
-          {[0, .25, .5, .75, 1].map((f) => <text key={f} x={x(maxT * f)} y={H - 8} textAnchor="middle" fontSize="9" fill="rgba(216,204,176,.7)">{hhmm(maxT * f)}</text>)}
-          <polygon points={`${x(curve[0].t)},${y(0)} ${pts} ${x(curve[curve.length - 1].t)},${y(0)}`} fill="rgba(228,170,86,.18)" />
-          <polyline points={pts} fill="none" stroke="#e4aa56" strokeWidth="2" strokeLinejoin="round" />
-          <circle cx={x(peak.t)} cy={y(peak.sev)} r="4" fill="#f87171" />
-          <text x={Math.min(x(peak.t) + 8, W - 70)} y={Math.max(y(peak.sev) - 6, 12)} fontSize="10" fill="#f87171">Peak {Math.round(peak.sev)}</text>
+          {[0, 25, 50, 75, 100].map((v) => <g key={v}><line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="rgba(59,36,18,.18)" strokeDasharray="3 4" /><text x={L - 6} y={y(v) + 3} textAnchor="end" fontSize="11" fill="#000">{v}</text></g>)}
+          {[0, .25, .5, .75, 1].map((f) => <text key={f} x={x(maxT * f)} y={H - 8} textAnchor="middle" fontSize="11" fill="#000">{hhmm(maxT * f)}</text>)}
+          <polygon points={`${x(curve[0].t)},${y(0)} ${pts} ${x(curve[curve.length - 1].t)},${y(0)}`} fill="rgba(107,15,26,.14)" />
+          <polyline points={pts} fill="none" stroke="#6b0f1a" strokeWidth="2" strokeLinejoin="round" />
+          <circle cx={x(peak.t)} cy={y(peak.sev)} r="4" fill="#9b1c1c" />
+          <text x={Math.min(x(peak.t) + 8, W - 70)} y={Math.max(y(peak.sev) - 6, 12)} fontSize="12" fill="#9b1c1c">Peak {Math.round(peak.sev)}</text>
         </svg>
       ) : <p className="mt-2 rounded-xl bg-black/20 p-4 text-center text-[11px] text-[#d8ccb0]/70">No severity data was recorded for this run.</p>}
       <div className="mt-3 grid grid-cols-3 gap-2">

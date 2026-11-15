@@ -23,7 +23,8 @@ one guide per member in `docs/`.
 npm install
 cp .env.example .env.local   # fill in MONGODB_URI and GEMINI_API_KEY
 npm run seed                 # loads the fixture city into MongoDB
-npm run seed:demo            # adds presentation history and simulator runs
+npm run seed:demo            # (optional) adds a rich simulated demo dataset: ~150 incidents over 180 days,
+                             # repairs, events, 36 simulator runs and 3 live incidents. `-- --clear` removes it.
 npm run dev
 ```
 
