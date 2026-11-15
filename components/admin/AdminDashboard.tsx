@@ -170,7 +170,7 @@ export function AdminDashboard() {
         <div className="m-4 rounded-2xl border border-white/10 bg-white/[.04] p-4">
           <p className="text-[10px] uppercase tracking-[.2em] text-[#e4aa56]">Virtual city</p>
           <p className="mt-2 text-xs leading-5 text-white/55">Explore Ithaca in the age of Odysseus.</p>
-          <Link href="/city" className="scroll-btn !mx-3 mt-4 block !px-2 text-center text-[11px] uppercase tracking-wide">Open live 3D city ↗</Link>
+          <div className="pt-6"><Link href="/city" className="scroll-btn font-heading !mx-3 block !px-2 text-center text-[12px] font-bold uppercase tracking-[.12em]">Open live 3D city ↗</Link></div>
         </div>
         <div className="flex items-center gap-3 border-t border-white/10 px-5 py-4"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#6a2c1a] text-xs">OP</span><div><p className="text-xs">City Operator</p><p className="text-[11px] text-white/30">Command access</p></div><span className="ml-auto text-white/25">•••</span></div>
       </aside>
@@ -210,7 +210,7 @@ export function AdminDashboard() {
           </div>
         </section>
 
-        <div className={`${chatFull ? "hidden" : ""} mt-5 flex flex-wrap items-center gap-2 print:hidden`}>
+        <div className={`${chatFull ? "hidden" : ""} my-6 flex flex-wrap items-center gap-2 print:hidden`}>
           <span className="text-[11px] uppercase tracking-wider text-[#d8ccb0]/70">District</span>
           {[null, ...districts.map((d) => d.name)].map((name) => <button key={name ?? "all"} onClick={() => setDistrict(name)} className={`rounded-full border px-3.5 py-1.5 text-[13px] transition ${district === name ? "border-[#4a1f14] bg-[#4a1f14] text-white" : "border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 hover:bg-white/10"}`}>{name ?? "All districts"}</button>)}
         </div>
