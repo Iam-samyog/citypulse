@@ -69,7 +69,7 @@ export function AdminDashboard() {
   const [simFinished, setSimFinished] = useState<SimFinishedRun | null>(null);
   const [simHistory, setSimHistory] = useState<SimHistoryEntry[]>([]);
   const [simDbConnected, setSimDbConnected] = useState<boolean | null>(null);
-  const simWindowRef = useRef<Window | null>(null);
+  const [simCurve, setSimCurve] = useState<number[]>([]);
 
   const loadSimHistory = () => {
     fetch("/api/simulator-history?limit=20").then(async (r) => r.json()).then((data) => {
@@ -79,27 +79,21 @@ export function AdminDashboard() {
   };
   useEffect(() => { loadSimHistory(); }, []);
   useEffect(() => {
-    // The simulator runs in its own tab (opened with window.open) and reports back
-    // here via postMessage — live progress while it runs, then the finished summary,
-    // then a confirmation once the user presses "Save to history" over there.
+    // The simulator opens in its own window (window.opener links back here) and
+    // reports progress via postMessage — live ticks while it runs, the finished
+    // summary, then a confirmation once the user presses "Save to history" there.
     function onMessage(e: MessageEvent) {
       const data = e.data;
       if (!data || data.source !== "citysim") return;
-      if (data.type === "start" || data.type === "reset") { setSimLive(null); setSimFinished(null); }
-      if (data.type === "tick") setSimLive(data as SimLiveState);
-      if (data.type === "finish") { setSimLive(data as SimLiveState); setSimFinished(data as SimFinishedRun); }
+      if (data.type === "start" || data.type === "reset") { setSimLive(null); setSimFinished(null); setSimCurve([]); }
+      if (data.type === "tick") { setSimLive(data as SimLiveState); setSimCurve((c) => [...c, data.severity].slice(-120)); }
+      if (data.type === "finish") { setSimLive(data as SimLiveState); setSimFinished(data as SimFinishedRun); setSimCurve((c) => [...c, data.severity].slice(-120)); }
       if (data.type === "saved") { setToast(`Saved "${data.scenarioTitle}" to simulation history`); loadSimHistory(); }
       if (data.type === "saveFailed") setToast("Could not reach the database — run was not saved");
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, []);
-  function openSimulator() {
-    const win = window.open("/simulator/index.html", "citypulse-simulator");
-    simWindowRef.current = win;
-    setSimLive(null);
-    setSimFinished(null);
-  }
 
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -173,6 +167,10 @@ export function AdminDashboard() {
   }, [toast]);
 
   const title = active === "Overview" ? "Welcome back, Operator" : active === "Simulator" ? "3D Crisis Simulator" : `${active} · ${district ?? "All districts"}`;
+  function handleNavClick(label: string) {
+    setActive(label);
+    if (label === "Simulator") window.open("/simulator/index.html", "_blank");
+  }
   const needle = query.trim().toLowerCase();
   const results = useMemo(() => {
     if (!needle) return [] as { key: string; kind: string; label: string; hint: string; run: () => void }[];
@@ -218,7 +216,7 @@ export function AdminDashboard() {
         </div>
         <nav className="flex-1 space-y-1 px-3 py-6">
           <p className="mb-3 px-3 text-[10px] uppercase tracking-[.24em] text-white/25">Workspace</p>
-          {NAV.map(([label, glyph]) => <button key={label} onClick={() => setActive(label)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-left text-sm transition ${active === label ? "bg-[#5a2616] text-white" : "text-white/45 hover:bg-white/[.05] hover:text-white/80"}`}><span className="grid h-14 w-9 place-items-center"><Torch lit={active === label} className="h-14 w-7" /></span><span>{label}</span>{label === "Incidents" && prefs.alerts && activeIncidents.length > 0 && <span className="ml-auto rounded-full bg-red-400 px-2 py-0.5 text-[10px] text-white">{activeIncidents.length}</span>}</button>)}
+          {NAV.map(([label, glyph]) => <button key={label} onClick={() => handleNavClick(label)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-left text-sm transition ${active === label ? "bg-[#5a2616] text-white" : "text-white/45 hover:bg-white/[.05] hover:text-white/80"}`}><span className="grid h-14 w-9 place-items-center"><Torch lit={active === label} className="h-14 w-7" /></span><span>{label}</span>{label === "Incidents" && prefs.alerts && activeIncidents.length > 0 && <span className="ml-auto rounded-full bg-red-400 px-2 py-0.5 text-[10px] text-white">{activeIncidents.length}</span>}</button>)}
         </nav>
         <div className="m-4 rounded-2xl border border-white/10 bg-white/[.04] p-4">
           <p className="text-[10px] uppercase tracking-[.2em] text-[#e4aa56]">Virtual city</p>
@@ -234,6 +232,7 @@ export function AdminDashboard() {
         <div className="flex items-center gap-2 sm:gap-3">
           <SearchBox className="hidden h-10 w-64 md:flex" query={query} setQuery={setQuery} results={results} open={searchOpen} setOpen={setSearchOpen} />
           <span className="flex h-10 items-center gap-2 rounded-xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] px-3 text-[11px] uppercase tracking-wider text-[#d8ccb0]/70"><span className={`h-2 w-2 rounded-full ${dataSource === "mongodb" ? "bg-emerald-400" : dataSource === "fixture" ? "bg-amber-400" : "animate-pulse bg-slate-300"}`} />{dataSource === "mongodb" ? "Live data" : dataSource === "fixture" ? "Demo data" : "Connecting"}</span>
+          <a href="/simulator/index.html" target="_blank" className="scroll-btn text-xs uppercase tracking-wider">Open Simulator ↗</a>
           <Link href="/city" className="scroll-btn text-xs uppercase tracking-wider">3D City ↗</Link>
         </div>
       </header>
@@ -241,7 +240,7 @@ export function AdminDashboard() {
       <div className="mx-auto max-w-[1500px] p-4 sm:p-7">
         <SearchBox className="mb-3 flex h-11 md:hidden print:hidden" query={query} setQuery={setQuery} results={results} open={searchOpen} setOpen={setSearchOpen} />
         <nav className="-mx-1 mb-4 flex gap-1 overflow-x-auto pb-1 lg:hidden print:hidden">
-          {NAV.map(([label]) => <button key={label} onClick={() => setActive(label)} className={`shrink-0 rounded-full px-4 py-2 text-[13px] ${active === label ? "bg-[#4a1f14] text-white" : "bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 border border-[#c9a24b]/25"}`}>{label}</button>)}
+          {NAV.map(([label]) => <button key={label} onClick={() => handleNavClick(label)} className={`shrink-0 rounded-full px-4 py-2 text-[13px] ${active === label ? "bg-[#4a1f14] text-white" : "bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 border border-[#c9a24b]/25"}`}>{label}</button>)}
         </nav>
 
         <section className={`${hideHero ? "hidden" : ""} relative z-30 flex min-h-[300px] flex-col justify-end gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between sm:p-10 sm:min-h-[380px]`}>
@@ -330,9 +329,9 @@ export function AdminDashboard() {
         {active === "Simulator" && (
           <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_1.1fr]">
             <div className="flex flex-col gap-5">
-              <Card title="3D crisis simulator" subtitle="Opens in its own tab — run a disaster there and watch it unfold here live">
+              <Card title="3D crisis simulator" subtitle="Opens full-screen in its own window">
                 <p className="text-xs leading-6 text-[#d8ccb0]/70">Set off a disaster, watch the city react in 3D, then press <b className="text-[#e4aa56]">Save to history</b> inside the simulator when it's done. The save shows up on this dashboard the moment it succeeds.</p>
-                <button onClick={openSimulator} className="mt-4 w-full rounded-xl bg-[#4a1f14] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-white">Open 3D Simulator ↗</button>
+                <a href="/simulator/index.html" target="_blank" className="mt-4 block w-full rounded-xl bg-[#4a1f14] px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-white">Open 3D Simulator ↗</a>
               </Card>
               <Card title="Live insights" subtitle={simLive ? simLive.scenarioTitle : "Waiting for a simulation"}>
                 {simLive ? (
@@ -341,10 +340,11 @@ export function AdminDashboard() {
                       <span>{simLive.clock} · {simLive.phase}</span>
                       <span className={`rounded-full px-2 py-1 text-[10px] uppercase ${simLive.severity < 15 ? "bg-emerald-400/15 text-emerald-300" : simLive.severity < 35 ? "bg-amber-400/15 text-amber-300" : simLive.severity < 60 ? "bg-orange-400/15 text-orange-300" : "bg-red-400/15 text-red-300"}`}>Severity {simLive.severity}</span>
                     </div>
+                    {simCurve.length > 1 && <SeverityChart values={simCurve} />}
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       {simLive.kpis.map((k) => <div key={k.label} className="rounded-xl bg-white/[.04] p-3 text-center"><p className="text-lg font-semibold">{k.value}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-[#d8ccb0]/70">{k.label}</p></div>)}
                     </div>
-                    {simFinished && <p className="mt-3 text-[11px] text-[#d8ccb0]/70">{simFinished.outcomeText} Press Save to history in the simulator tab to keep this run.</p>}
+                    {simFinished && <p className="mt-3 text-[11px] text-[#d8ccb0]/70">{simFinished.outcomeText} Press Save to history in the simulator to keep this run.</p>}
                   </div>
                 ) : <p className="text-xs leading-6 text-[#d8ccb0]/70">No simulation running right now. Open the 3D simulator and set off a disaster — KPIs, severity and the final outcome will stream in here live.</p>}
               </Card>
@@ -371,6 +371,13 @@ export function AdminDashboard() {
 
 function Kpi({ label, value, change, glyph, color, onClick }: { label: string; value: string | number; change: string; glyph: string; color: string; onClick?: () => void }) { return <article onClick={onClick} className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md rounded-2xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] p-4 shadow-[0_10px_34px_rgba(0,0,0,.4)] sm:p-5"><div className="flex items-start justify-between"><p className="text-[12px] font-medium text-[#d8ccb0]/70">{label}</p><span className="grid h-9 w-9 place-items-center rounded-xl text-base" style={{ color, backgroundColor: `${color}12` }}>{glyph}</span></div><p className="mt-3 text-3xl font-semibold tracking-tight">{value}</p><p className="mt-2 text-[11px] text-[#d8ccb0]/70">{change}</p></article>; }
 function Card({ title, subtitle, action, onAction, children }: { title: string; subtitle: string; action?: string; onAction?: () => void; children: React.ReactNode }) { return <article className="rounded-2xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] p-5 shadow-[0_10px_34px_rgba(0,0,0,.4)]"><header className="mb-5 flex items-start justify-between gap-3"><div><h2 className="font-heading text-lg font-normal text-white">{title}</h2><p className="mt-1 text-[12px] text-[#d8ccb0]/70">{subtitle}</p></div>{action && <button onClick={onAction} className="rounded-lg border border-[#c9a24b]/25 px-3 py-2 text-[11px] text-[#d8ccb0]/70 hover:bg-white/10 print:hidden">{action}</button>}</header>{children}</article>; }
+function SeverityChart({ values }: { values: number[] }) {
+  const w = 300, h = 64, max = 100;
+  const points = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - (Math.min(v, max) / max) * (h - 6) - 3}`).join(" ");
+  const last = values[values.length - 1] ?? 0;
+  const color = last < 15 ? "#4ade80" : last < 35 ? "#fbbf24" : last < 60 ? "#fb923c" : "#f87171";
+  return <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="mt-3 h-16 w-full rounded-lg bg-black/20"><polyline points={points} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" /></svg>;
+}
 function HealthChart({ health, range, seed }: { health: number; range: "24h" | "7d" | "30d"; seed: number }) {
   const n = 16, amp = range === "24h" ? 4 : range === "7d" ? 7 : 10;
   const ys = Array.from({ length: n }, (_, i) => { const v = i === n - 1 ? health : Math.min(100, health - Math.abs(Math.sin(i * 1.7 + seed)) * amp - (n - 1 - i) * 0.1); return 130 - ((v - 60) / 40) * 118; });
