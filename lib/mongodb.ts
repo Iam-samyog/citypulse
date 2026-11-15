@@ -38,4 +38,5 @@ export const collections = {
   repairOperations: "repair_operations",
   simulationEvents: "simulation_events",
   aiAnalysis: "ai_analysis",
+  simulatorHistory: "simulator_history",
 } as const;

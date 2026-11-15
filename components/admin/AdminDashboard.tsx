@@ -11,7 +11,7 @@ import type { InfrastructureComponent, InfrastructureDependency } from "@/types/
 
 const NAV = [
   ["Overview", "⌂"], ["Infrastructure", "⌘"], ["Incidents", "△"],
-  ["Advisors", "✦"]
+  ["Advisors", "✦"], ["Simulator", "◭"]
 ] as const;
 
 const ART: Record<string, { src: string; pos: string; full?: boolean }> = {
@@ -19,7 +19,23 @@ const ART: Record<string, { src: string; pos: string; full?: boolean }> = {
   Infrastructure: { src: "/art/odysseus-sea.jpg", pos: "50% 30%" },
   Incidents: { src: "/art/battle-crowd.jpg", pos: "50% 50%" },
   "Advisors": { src: "/art/athena-odysseus.jpg", pos: "50% 62%" },
+  Simulator: { src: "/art/odysseus-sea.jpg", pos: "50% 40%" },
 };
+
+interface SimKpi { label: string; value: string | number }
+interface SimLiveState {
+  scenario: string; scenarioTitle: string; clock: string; phase: string;
+  playing: boolean; done: boolean; severity: number; kpis: SimKpi[];
+}
+interface SimFinishedRun {
+  scenario: string; scenarioTitle: string;
+  options: { o1?: string; o1Label?: string; o2?: string; o2Label?: string };
+  outcome: string; outcomeText: string; durationSimMinutes: number;
+  severity: number; maxSeverity: number; kpis: SimKpi[];
+  curve: { t: number; sev: number }[]; events: { t: number; text: string; kind: string }[];
+  startedAt?: string; endedAt?: string;
+}
+interface SimHistoryEntry extends SimFinishedRun { _id?: string; runId?: string }
 
 const CATEGORY = {
   electrical: { label: "Electrical", color: "#f2b963" },
@@ -41,12 +57,49 @@ export function AdminDashboard() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [athenaOpen, setAthenaOpen] = useState(false);
   const chatFull = active === "Advisors" && athenaOpen;
+  const hideHero = chatFull || active === "Simulator";
   const [range, setRange] = useState<"24h" | "7d" | "30d">("24h");
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState("");
   const [prefs, setPrefs] = useState({ autoRefresh: true, compact: false, alerts: true });
   const menuRef = useRef<HTMLDivElement>(null);
   const [dataSource, setDataSource] = useState<"loading" | "mongodb" | "fixture">("loading");
+
+  const [simLive, setSimLive] = useState<SimLiveState | null>(null);
+  const [simFinished, setSimFinished] = useState<SimFinishedRun | null>(null);
+  const [simHistory, setSimHistory] = useState<SimHistoryEntry[]>([]);
+  const [simDbConnected, setSimDbConnected] = useState<boolean | null>(null);
+  const simWindowRef = useRef<Window | null>(null);
+
+  const loadSimHistory = () => {
+    fetch("/api/simulator-history?limit=20").then(async (r) => r.json()).then((data) => {
+      setSimDbConnected(data.connected !== false);
+      setSimHistory(data.items ?? []);
+    }).catch(() => setSimDbConnected(false));
+  };
+  useEffect(() => { loadSimHistory(); }, []);
+  useEffect(() => {
+    // The simulator runs in its own tab (opened with window.open) and reports back
+    // here via postMessage — live progress while it runs, then the finished summary,
+    // then a confirmation once the user presses "Save to history" over there.
+    function onMessage(e: MessageEvent) {
+      const data = e.data;
+      if (!data || data.source !== "citysim") return;
+      if (data.type === "start" || data.type === "reset") { setSimLive(null); setSimFinished(null); }
+      if (data.type === "tick") setSimLive(data as SimLiveState);
+      if (data.type === "finish") { setSimLive(data as SimLiveState); setSimFinished(data as SimFinishedRun); }
+      if (data.type === "saved") { setToast(`Saved "${data.scenarioTitle}" to simulation history`); loadSimHistory(); }
+      if (data.type === "saveFailed") setToast("Could not reach the database — run was not saved");
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+  function openSimulator() {
+    const win = window.open("/simulator/index.html", "citypulse-simulator");
+    simWindowRef.current = win;
+    setSimLive(null);
+    setSimFinished(null);
+  }
 
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -119,7 +172,7 @@ export function AdminDashboard() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const title = active === "Overview" ? "Welcome back, Operator" : `${active} · ${district ?? "All districts"}`;
+  const title = active === "Overview" ? "Welcome back, Operator" : active === "Simulator" ? "3D Crisis Simulator" : `${active} · ${district ?? "All districts"}`;
   const needle = query.trim().toLowerCase();
   const results = useMemo(() => {
     if (!needle) return [] as { key: string; kind: string; label: string; hint: string; run: () => void }[];
@@ -177,7 +230,7 @@ export function AdminDashboard() {
 
       <header className="sticky top-0 z-40 print:hidden flex min-h-[76px] items-center justify-between gap-4 border-b border-[#c9a24b]/25 bg-[#1a0c0a]/55 backdrop-blur-xl px-4 backdrop-blur-xl sm:px-7">
         <div className="flex items-center gap-2.5 lg:hidden"><img src="/art/helmet.png" alt="" aria-hidden className="h-9 w-auto" /><div><p className="font-paint text-lg tracking-[.12em]">ITHACA</p><p className="text-[10px] uppercase tracking-widest text-[#d8ccb0]/70">Operations</p></div></div>
-        <div className="hidden sm:block"><p className="text-lg font-semibold">{active}</p><p className="mt-0.5 text-[12px] text-[#d8ccb0]/70">{active === "Overview" ? "Monitor city systems and operational readiness" : active === "Infrastructure" ? "Every monitored asset across the city" : active === "Incidents" ? "Active and historical incidents" : "Athena and Oracle intelligence layer"}</p></div>
+        <div className="hidden sm:block"><p className="text-lg font-semibold">{active}</p><p className="mt-0.5 text-[12px] text-[#d8ccb0]/70">{active === "Overview" ? "Monitor city systems and operational readiness" : active === "Infrastructure" ? "Every monitored asset across the city" : active === "Incidents" ? "Active and historical incidents" : active === "Simulator" ? "Live insights from the 3D crisis simulator" : "Athena and Oracle intelligence layer"}</p></div>
         <div className="flex items-center gap-2 sm:gap-3">
           <SearchBox className="hidden h-10 w-64 md:flex" query={query} setQuery={setQuery} results={results} open={searchOpen} setOpen={setSearchOpen} />
           <span className="flex h-10 items-center gap-2 rounded-xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] px-3 text-[11px] uppercase tracking-wider text-[#d8ccb0]/70"><span className={`h-2 w-2 rounded-full ${dataSource === "mongodb" ? "bg-emerald-400" : dataSource === "fixture" ? "bg-amber-400" : "animate-pulse bg-slate-300"}`} />{dataSource === "mongodb" ? "Live data" : dataSource === "fixture" ? "Demo data" : "Connecting"}</span>
@@ -191,7 +244,7 @@ export function AdminDashboard() {
           {NAV.map(([label]) => <button key={label} onClick={() => setActive(label)} className={`shrink-0 rounded-full px-4 py-2 text-[13px] ${active === label ? "bg-[#4a1f14] text-white" : "bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 border border-[#c9a24b]/25"}`}>{label}</button>)}
         </nav>
 
-        <section className={`${chatFull ? "hidden" : ""} relative z-30 flex min-h-[300px] flex-col justify-end gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between sm:p-10 sm:min-h-[380px]`}>
+        <section className={`${hideHero ? "hidden" : ""} relative z-30 flex min-h-[300px] flex-col justify-end gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between sm:p-10 sm:min-h-[380px]`}>
           <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl border border-[#c9a24b]/30 bg-[#1c0e0b] shadow-[0_18px_50px_rgba(0,0,0,.5)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={ART[active].src} alt="" className={`absolute left-0 top-0 h-full w-full max-w-none object-cover ${ART[active].full ? "" : "sm:w-[112%]"}`} style={{ objectPosition: ART[active].pos }} />
@@ -210,7 +263,7 @@ export function AdminDashboard() {
           </div>
         </section>
 
-        <div className={`${chatFull ? "hidden" : ""} mt-5 flex flex-wrap items-center gap-2 print:hidden`}>
+        <div className={`${hideHero ? "hidden" : ""} mt-5 flex flex-wrap items-center gap-2 print:hidden`}>
           <span className="text-[11px] uppercase tracking-wider text-[#d8ccb0]/70">District</span>
           {[null, ...districts.map((d) => d.name)].map((name) => <button key={name ?? "all"} onClick={() => setDistrict(name)} className={`rounded-full border px-3.5 py-1.5 text-[13px] transition ${district === name ? "border-[#4a1f14] bg-[#4a1f14] text-white" : "border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 hover:bg-white/10"}`}>{name ?? "All districts"}</button>)}
         </div>
@@ -273,6 +326,42 @@ export function AdminDashboard() {
               <Card title="Athena" subtitle="Incident intelligence"><p className="text-xs leading-6 text-[#d8ccb0]/70">Analyses live failures and recommends response steps, grounded in simulation telemetry. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents right now."}</p><button onClick={() => setAthenaOpen(true)} className="mt-4 inline-block rounded-xl bg-[#4aa9bd] px-4 py-2.5 text-xs font-semibold text-[#071b23]">Chat with Athena ✦</button></Card>
               <Card title="Oracle" subtitle="Strategic foresight"><p className="text-xs leading-6 text-[#d8ccb0]/70">Reviews resilience and backup endurance to forecast cascading risk. Current backup coverage is {coverage}%. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents are ready for review."}</p><Link href="/city" className="mt-4 inline-block rounded-xl bg-[#947ac2] px-4 py-2.5 text-xs font-semibold text-white">Consult Oracle in 3D city ↗</Link></Card>
             </section>)}
+
+        {active === "Simulator" && (
+          <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_1.1fr]">
+            <div className="flex flex-col gap-5">
+              <Card title="3D crisis simulator" subtitle="Opens in its own tab — run a disaster there and watch it unfold here live">
+                <p className="text-xs leading-6 text-[#d8ccb0]/70">Set off a disaster, watch the city react in 3D, then press <b className="text-[#e4aa56]">Save to history</b> inside the simulator when it's done. The save shows up on this dashboard the moment it succeeds.</p>
+                <button onClick={openSimulator} className="mt-4 w-full rounded-xl bg-[#4a1f14] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-white">Open 3D Simulator ↗</button>
+              </Card>
+              <Card title="Live insights" subtitle={simLive ? simLive.scenarioTitle : "Waiting for a simulation"}>
+                {simLive ? (
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-[#d8ccb0]/70">
+                      <span>{simLive.clock} · {simLive.phase}</span>
+                      <span className={`rounded-full px-2 py-1 text-[10px] uppercase ${simLive.severity < 15 ? "bg-emerald-400/15 text-emerald-300" : simLive.severity < 35 ? "bg-amber-400/15 text-amber-300" : simLive.severity < 60 ? "bg-orange-400/15 text-orange-300" : "bg-red-400/15 text-red-300"}`}>Severity {simLive.severity}</span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {simLive.kpis.map((k) => <div key={k.label} className="rounded-xl bg-white/[.04] p-3 text-center"><p className="text-lg font-semibold">{k.value}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-[#d8ccb0]/70">{k.label}</p></div>)}
+                    </div>
+                    {simFinished && <p className="mt-3 text-[11px] text-[#d8ccb0]/70">{simFinished.outcomeText} Press Save to history in the simulator tab to keep this run.</p>}
+                  </div>
+                ) : <p className="text-xs leading-6 text-[#d8ccb0]/70">No simulation running right now. Open the 3D simulator and set off a disaster — KPIs, severity and the final outcome will stream in here live.</p>}
+              </Card>
+            </div>
+            <Card title="Simulation history" subtitle={simDbConnected === false ? "Database unavailable" : `${simHistory.length} saved run(s)`} action="Refresh" onAction={loadSimHistory}>
+              <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto">
+                {simHistory.length ? simHistory.map((h, i) => (
+                  <div key={h.runId ?? i} className="rounded-xl bg-white/[.04] p-3">
+                    <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{h.scenarioTitle}</span><span className="text-[10px] text-[#d8ccb0]/70">{h.endedAt ? new Date(h.endedAt).toLocaleString() : ""}</span></div>
+                    <p className="mt-1 text-[11px] text-[#d8ccb0]/70">{h.options?.o1Label} · {h.options?.o2Label}</p>
+                    <p className={`mt-1 text-[11px] ${h.outcome === "good" ? "text-emerald-300" : "text-amber-300"}`}>{h.outcomeText}</p>
+                  </div>
+                )) : <p className="py-6 text-center text-xs text-[#d8ccb0]/70">{simDbConnected === false ? "Could not reach the database." : "No simulations saved yet. Finish and save a run in the simulator to see it here."}</p>}
+              </div>
+            </Card>
+          </section>
+        )}
 
       </div>
       {toast && <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl bg-[#4a1f14] px-5 py-3 text-xs text-white shadow-xl print:hidden">{toast}</div>}
