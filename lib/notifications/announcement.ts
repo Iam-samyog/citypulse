@@ -47,7 +47,7 @@ export function createAnnouncement(payload: AlertPayload): string {
 
   const lines: string[] = [
     `Emergency alert for the city of ${city}.`,
-    `CITYPULSE has detected ${incidentCount} active infrastructure ${
+    `Oracle of Ithaca has detected ${incidentCount} active infrastructure ${
       incidentCount === 1 ? "incident" : "incidents"
     }.`,
   ];
@@ -117,7 +117,7 @@ export function createAnnouncement(payload: AlertPayload): string {
   }
 
   lines.push(
-    "Please follow official city instructions and monitor CITYPULSE for further updates."
+    "Please follow official city instructions and monitor Oracle of Ithaca for further updates."
   );
 
   return lines.join(" ");

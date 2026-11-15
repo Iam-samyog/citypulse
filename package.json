@@ -2,7 +2,7 @@
   "name": "citypulse",
   "version": "0.1.0",
   "private": true,
-  "description": "CITYPULSE: The Odyssey of a City — AI-powered urban infrastructure digital twin (HackUTA)",
+  "description": "Oracle of Ithaca: The Odyssey of a City — AI-powered urban infrastructure digital twin (HackUTA)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

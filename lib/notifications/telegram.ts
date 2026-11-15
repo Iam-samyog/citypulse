@@ -124,7 +124,7 @@ export async function broadcastAlert(
       await sendAudio(
         chatId,
         audioBuffer,
-        "CITYPULSE emergency announcement"
+        "Oracle of Ithaca emergency announcement"
       );
       result.audioSent = true;
     } catch (error) {

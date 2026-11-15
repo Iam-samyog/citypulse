@@ -1,4 +1,4 @@
-# CITYPULSE — The Odyssey of a City
+# Oracle of Ithaca — The Odyssey of a City
 
 An AI-powered urban infrastructure digital twin. HackUTA submission.
 

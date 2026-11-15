@@ -1,4 +1,4 @@
-# CITYPULSE: The Odyssey of a City — Product Spec
+# Oracle of Ithaca: The Odyssey of a City — Product Spec
 
 **Theme:** Homer's *The Odyssey*. The simulated city is Ithaca. Failures are
 trials. AI guidance is Athena's wisdom. Recovery is the return home.
@@ -12,7 +12,7 @@ going down) can cascade — a water pump loses power, distribution capacity
 drops, a hospital's backup draws down, traffic signals in the area go dark —
 and nobody watching one system sees the whole picture.
 
-CITYPULSE makes that cascade visible, explainable, and recoverable in one
+Oracle of Ithaca makes that cascade visible, explainable, and recoverable in one
 place.
 
 ## The five chapters (= the five parts of the demo)

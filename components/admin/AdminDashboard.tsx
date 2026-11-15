@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Torch } from "@/components/dashboard/Torch";
 import { CityDemographics } from "@/components/dashboard/CityDemographics";
 import { ChatbotWidget } from "@/components/ai/ChatbotWidget";
+import { buildAthenaPrompts, buildOraclePrompts, type QuickData } from "@/lib/ai/quickInsights";
+import { buildHistory, summarizeHistory, HISTORY_DAYS } from "@/lib/data/history";
 import { districts } from "@/lib/seed/infrastructure";
 import type { Incident } from "@/types/incident";
 import type { InfrastructureComponent, InfrastructureDependency } from "@/types/infrastructure";
@@ -56,9 +58,10 @@ export function AdminDashboard() {
   const [query, setQuery] = useState(""); // text in the search box
   const [tableQuery, setTableQuery] = useState(""); // filter applied to the asset table
   const [searchOpen, setSearchOpen] = useState(false);
-  const [athenaOpen, setAthenaOpen] = useState(false);
-  const chatFull = active === "Advisors" && athenaOpen;
-  const hideHero = chatFull || active === "Simulator";
+  // null = the Advisors landing page (wallpaper + two cards); otherwise that advisor's chat is open.
+  const [advisor, setAdvisor] = useState<"athena" | "oracle" | null>(null);
+  const chatOpen = active === "Advisors" && advisor !== null;
+  const hideHero = chatOpen || active === "Simulator";
   const [range, setRange] = useState<"24h" | "7d" | "30d">("24h");
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState("");
@@ -72,6 +75,8 @@ export function AdminDashboard() {
   const [simHistory, setSimHistory] = useState<SimHistoryEntry[]>([]);
   const [simDbConnected, setSimDbConnected] = useState<boolean | null>(null);
   const [simCurve, setSimCurve] = useState<number[]>([]);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
   const loadSimHistory = () => {
     fetch("/api/simulator-history?limit=20").then(async (r) => r.json()).then((data) => {
@@ -94,7 +99,14 @@ export function AdminDashboard() {
       if (data.type === "saveFailed") setToast("Could not reach the database — run was not saved");
     }
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
+    // The simulator tab broadcasts on this channel, so updates arrive even when it was
+    // opened by a plain link (which has no window.opener back to the dashboard).
+    let channel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      channel = new BroadcastChannel("citysim");
+      channel.onmessage = onMessage;
+    }
+    return () => { window.removeEventListener("message", onMessage); channel?.close(); };
   }, []);
 
   const [tick, setTick] = useState(0);
@@ -155,6 +167,77 @@ export function AdminDashboard() {
     ? Math.round((scopedDeps.filter((item) => item.hasBackup).length / scopedDeps.length) * 100)
     : 0;
   const health = scoped.length ? Math.round((statusCounts.operational / scoped.length) * 100) : 0;
+
+  /** Compact, citywide snapshot handed to Gemini for the Athena and Oracle advisors. */
+  const history = useMemo(() => buildHistory(allComponents), [allComponents]);
+  const historySummary = useMemo(() => summarizeHistory(history), [history]);
+  const districtHistory = useMemo(() => district ? summarizeHistory(history.filter((i) => i.district === district)) : null, [history, district]);
+  const focusAssets = district ? allComponents.filter((c) => c.district === district) : allComponents;
+  const focusIncidents = district ? incidents.filter((i) => i.estimatedImpact.affectedDistricts.includes(district) || focusAssets.some((c) => c.id === i.componentId)) : incidents;
+
+  const quickData: QuickData = district
+    ? { components: focusAssets, dependencies: dependencies.filter((d) => focusAssets.some((c) => c.id === d.sourceId || c.id === d.targetId)), incidents: focusIncidents, history: districtHistory ?? historySummary, log: history.filter((i) => i.district === district), districts: districts.filter((d) => d.name === district) }
+    : { components: allComponents, dependencies, incidents, history: historySummary, log: history, districts };
+  const athenaPrompts = useMemo(() => buildAthenaPrompts(quickData), [JSON.stringify(quickData.components.map((c) => c.status)), quickData.incidents.length, district, history]); // eslint-disable-line react-hooks/exhaustive-deps
+  const oraclePrompts = useMemo(() => buildOraclePrompts(quickData), [JSON.stringify(quickData.components.map((c) => c.status)), quickData.incidents.length, district, history]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Compact snapshot handed to Gemini. With a district selected it carries a "focus" block for that district. */
+  function buildAdvisorContext() {
+    const byId = new Map(allComponents.map((c) => [c.id, c]));
+    const count = (list: InfrastructureComponent[], st: string) => list.filter((c) => c.status === st).length;
+    const districtsView = districts.map((d) => {
+      const list = allComponents.filter((c) => c.district === d.name);
+      return { district: d.name, population: d.population, assets: list.length, offline: count(list, "offline"), degraded: count(list, "degraded"), onBackup: count(list, "backup") };
+    });
+    const ids = new Set(focusAssets.map((c) => c.id));
+    const depsWithBackup = dependencies.filter((d) => d.hasBackup).length;
+    const incView = (list: Incident[]) => list.slice(0, 8).map((i) => ({
+      type: i.incidentType, severity: i.severity, status: i.incidentStatus, startedAt: i.startTime,
+      origin: byId.get(i.componentId)?.name ?? i.componentId,
+      failedAtSource: i.estimatedImpact.directlyFailedCount, downstreamAffected: i.estimatedImpact.downstreamAffectedCount,
+      populationExposedPct: Math.round(i.estimatedImpact.populationExposedPct), recoveryMinutes: i.estimatedImpact.estimatedRecoveryMinutes,
+      districts: i.estimatedImpact.affectedDistricts, criticalFacilities: i.estimatedImpact.criticalFacilitiesAffected,
+    }));
+    const assetView = (c: InfrastructureComponent) => ({ name: c.name, category: c.category, district: c.district, status: c.status, criticality: c.criticality, loadPct: Math.round((c.currentLoad / c.maxCapacity) * 100), backupLeft: c.backupCapacityRemaining });
+    const base = {
+      city: "Ithaca, age of Odysseus",
+      assets: { total: allComponents.length, operational: count(allComponents, "operational"), onBackup: count(allComponents, "backup"), degraded: count(allComponents, "degraded"), offline: count(allComponents, "offline") },
+      districts: districtsView,
+      backupCoveragePct: dependencies.length ? Math.round((depsWithBackup / dependencies.length) * 100) : 0,
+    };
+    if (district) {
+      const info = districts.find((d) => d.name === district);
+      const localDeps = dependencies.filter((d) => ids.has(d.sourceId) || ids.has(d.targetId));
+      const crossIn = dependencies.filter((d) => ids.has(d.targetId) && !ids.has(d.sourceId)).map((d) => byId.get(d.sourceId)).filter((c): c is InfrastructureComponent => !!c);
+      const crossOut = dependencies.filter((d) => ids.has(d.sourceId) && !ids.has(d.targetId)).map((d) => byId.get(d.targetId)).filter((c): c is InfrastructureComponent => !!c);
+      return JSON.stringify({
+        ...base,
+        focus: {
+          district, population: info?.population, character: info?.character,
+          assets: { total: focusAssets.length, operational: count(focusAssets, "operational"), onBackup: count(focusAssets, "backup"), degraded: count(focusAssets, "degraded"), offline: count(focusAssets, "offline") },
+          healthPct: focusAssets.length ? Math.round((count(focusAssets, "operational") / focusAssets.length) * 100) : 0,
+          backupCoveragePct: localDeps.length ? Math.round((localDeps.filter((d) => d.hasBackup).length / localDeps.length) * 100) : 0,
+          byCategory: Object.fromEntries(Object.keys(CATEGORY).map((k) => { const l = focusAssets.filter((c) => c.category === k); return [k, { total: l.length, offline: count(l, "offline"), degraded: count(l, "degraded") }]; })),
+          allAssets: focusAssets.map(assetView),
+          dependsOnOtherDistricts: [...new Map(crossIn.map((c) => [c.id, { name: c.name, district: c.district, status: c.status }])).values()].slice(0, 8),
+          otherDistrictsDependOnUs: [...new Map(crossOut.map((c) => [c.id, { name: c.name, district: c.district, status: c.status }])).values()].slice(0, 8),
+          incidents: incView(focusIncidents),
+          history: districtHistory,
+        },
+        cityHistoryForComparison: { totalIncidents: historySummary.totalIncidents, trendPct: historySummary.trendPct, districtBurden: historySummary.districtBurden },
+        recentSimulations: simHistory.slice(0, 3).map((h) => ({ scenario: h.scenarioTitle, outcome: h.outcome, peakSeverity: Math.round(h.maxSeverity) })),
+      });
+    }
+    return JSON.stringify({
+      ...base,
+      byCategory: Object.fromEntries(Object.keys(CATEGORY).map((k) => { const l = allComponents.filter((c) => c.category === k); return [k, { total: l.length, offline: count(l, "offline"), degraded: count(l, "degraded") }]; })),
+      troubledAssets: allComponents.filter((c) => c.status !== "operational").sort((a, b) => b.criticality - a.criticality).slice(0, 10).map(assetView),
+      mostCriticalAssets: [...allComponents].sort((a, b) => b.criticality - a.criticality).slice(0, 6).map((c) => ({ name: c.name, status: c.status, district: c.district })),
+      incidents: incView(incidents),
+      history: historySummary,
+      recentSimulations: simHistory.slice(0, 3).map((h) => ({ scenario: h.scenarioTitle, outcome: h.outcome, peakSeverity: Math.round(h.maxSeverity), durationMinutes: Math.round(h.durationSimMinutes) })),
+    });
+  }
   const population = districts.filter((d) => !district || d.name === district).reduce((s, d) => s + d.population, 0);
 
   useEffect(() => {
@@ -171,6 +254,7 @@ export function AdminDashboard() {
   const title = active === "Overview" ? "Welcome back, Operator" : active === "Simulator" ? "3D Crisis Simulator" : `${active} · ${district ?? "All districts"}`;
   function handleNavClick(label: string) {
     setActive(label);
+    if (label === "Advisors") setAdvisor(null);
     if (label === "Simulator") window.open("/simulator/index.html", "_blank");
   }
   const needle = query.trim().toLowerCase();
@@ -190,7 +274,7 @@ export function AdminDashboard() {
   function exportCsv() {
     const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const lines: string[] = [
-      "CityPulse operations report", `Generated,${esc(new Date().toISOString())}`, `Scope,${esc(district ?? "All districts")}`, "",
+      "Oracle of Ithaca operations report", `Generated,${esc(new Date().toISOString())}`, `Scope,${esc(district ?? "All districts")}`, "",
       "SUMMARY", `Population,${population}`, `Assets,${scoped.length}`, `Operational health %,${health}`,
       `Active incidents,${activeIncidents.length}`, `Backup coverage %,${coverage}`, "",
       "DISTRICTS", "District,Population,Assets,Healthy assets",
@@ -450,21 +534,51 @@ export function AdminDashboard() {
 
         {active === "Incidents" && <Card title="Incidents" subtitle={`${scopedIncidents.length} recorded · ${activeIncidents.length} active`}><IncidentList incidents={scopedIncidents} /></Card>}
 
-        {active === "Advisors" && (athenaOpen
-          ? <div>
-              <button onClick={() => setAthenaOpen(false)} className="mb-3 text-xs uppercase tracking-wider text-[#e4aa56] hover:text-white">← Back to assistants</button>
-              <ChatbotWidget embedded components={allComponents} incidents={scopedIncidents} />
+        {active === "Advisors" && (
+          <>
+            {chatOpen && <button onClick={() => setAdvisor(null)} className="mb-3 text-xs uppercase tracking-wider text-[#e4aa56] hover:text-white">← Back to advisors</button>}
+            {!chatOpen && (
+              <section className="mt-5 grid items-start gap-5 md:grid-cols-2">
+                <Card title="Athena" subtitle="Incident intelligence">
+                  <p className="text-xs leading-6 text-[#d8ccb0]/70">Analyses live failures and recommends response steps, grounded in simulation telemetry. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents right now."}</p>
+                  <button onClick={() => setAdvisor("athena")} className="mt-4 inline-block rounded-xl bg-[#4aa9bd] px-4 py-2.5 text-xs font-semibold text-[#071b23]">Chat with Athena ✦</button>
+                </Card>
+                <Card title="Oracle" subtitle="Strategic foresight">
+                  <p className="text-xs leading-6 text-[#d8ccb0]/70">Reviews resilience and backup endurance to forecast cascading risk. Current backup coverage is {coverage}%. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents are ready for review."}</p>
+                  <button onClick={() => setAdvisor("oracle")} className="mt-4 inline-block rounded-xl bg-[#947ac2] px-4 py-2.5 text-xs font-semibold text-white">Chat with Oracle Ω</button>
+                </Card>
+              </section>
+            )}
+            <div className={chatOpen ? "h-[calc(100dvh-150px)] min-h-[480px]" : "hidden"}>
+              <div className={advisor === "athena" ? "h-full" : "hidden"}><ChatbotWidget agent="athena" getContext={buildAdvisorContext} quickPrompts={athenaPrompts} /></div>
+              <div className={advisor === "oracle" ? "h-full" : "hidden"}><ChatbotWidget agent="oracle" getContext={buildAdvisorContext} quickPrompts={oraclePrompts} /></div>
             </div>
-          : <section className="mt-5 grid gap-5 md:grid-cols-2">
-              <Card title="Athena" subtitle="Incident intelligence"><p className="text-xs leading-6 text-[#d8ccb0]/70">Analyses live failures and recommends response steps, grounded in simulation telemetry. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents right now."}</p><button onClick={() => setAthenaOpen(true)} className="mt-4 inline-block rounded-xl bg-[#4aa9bd] px-4 py-2.5 text-xs font-semibold text-[#071b23]">Chat with Athena ✦</button></Card>
-              <Card title="Oracle" subtitle="Strategic foresight"><p className="text-xs leading-6 text-[#d8ccb0]/70">Reviews resilience and backup endurance to forecast cascading risk. Current backup coverage is {coverage}%. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents are ready for review."}</p><Link href="/city" className="mt-4 inline-block rounded-xl bg-[#947ac2] px-4 py-2.5 text-xs font-semibold text-white">Consult Oracle in 3D city ↗</Link></Card>
-            </section>)}
+          </>
+        )}
 
-        {active === "Simulator" && (
-          <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_1.1fr]">
+        {active === "Simulator" && (() => {
+          const selected = incidents.find((i) => i.incidentId === selectedIncidentId) ?? incidents[0] ?? null;
+          const selectedRun = selectedRunId ? simHistory.find((h, i) => (h.runId ?? String(i)) === selectedRunId) ?? null : null;
+          return (
+          <section className="mt-5 grid items-start gap-5 xl:grid-cols-[1fr_1.1fr]">
+            <div className="flex flex-col gap-5">
+              <Card title="Incidents" subtitle={`${incidents.length} recorded · select one for its overview`}>
+                {incidents.length ? <div className="flex max-h-[260px] flex-col gap-2 overflow-y-auto pr-1">
+                  {incidents.map((inc) => {
+                    const on = !selectedRunId && selected?.incidentId === inc.incidentId;
+                    return <button key={inc.incidentId} onClick={() => { setSelectedIncidentId(inc.incidentId); setSelectedRunId(null); }} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${on ? "border-[#e4aa56]/70 bg-[#4a1f14]" : "border-[#c9a24b]/20 bg-white/[.03] hover:bg-white/[.08]"}`}>
+                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${inc.severity === "critical" ? "bg-red-400" : inc.severity === "major" ? "bg-orange-500" : "bg-amber-400"}`} />
+                      <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold capitalize">{inc.incidentType.replace(/_/g, " ")}</span><span className="block truncate text-[11px] text-[#d8ccb0]/70">{inc.componentId} · {inc.incidentStatus}</span></span>
+                      <span className="text-[10px] uppercase tracking-wider text-[#d8ccb0]/60">{inc.severity}</span>
+                    </button>;
+                  })}
+                </div> : <EmptyActivity />}
+              </Card>
+              {selectedRun ? <RunOverview run={selectedRun} onClose={() => setSelectedRunId(null)} /> : selected && <IncidentOverview incident={selected} components={allComponents} />}
+            </div>
             <div className="flex flex-col gap-5">
               <Card title="3D crisis simulator" subtitle="Opens full-screen in its own window">
-                <p className="text-xs leading-6 text-[#d8ccb0]/70">Set off a disaster, watch the city react in 3D, then press <b className="text-[#e4aa56]">Save to history</b> inside the simulator when it's done. The save shows up on this dashboard the moment it succeeds.</p>
+                <p className="text-xs leading-6 text-[#d8ccb0]/70">Set off a disaster, watch the city react in 3D, then press <b className="text-[#e4aa56]">Save to history</b> inside the simulator when it&apos;s done. The save shows up on this dashboard the moment it succeeds.</p>
                 <a href="/simulator/index.html" target="_blank" className="mt-4 block w-full rounded-xl bg-[#4a1f14] px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-white">Open 3D Simulator ↗</a>
               </Card>
               <Card title="Live insights" subtitle={simLive ? simLive.scenarioTitle : "Waiting for a simulation"}>
@@ -482,20 +596,21 @@ export function AdminDashboard() {
                   </div>
                 ) : <p className="text-xs leading-6 text-[#d8ccb0]/70">No simulation running right now. Open the 3D simulator and set off a disaster — KPIs, severity and the final outcome will stream in here live.</p>}
               </Card>
-            </div>
-            <Card title="Simulation history" subtitle={simDbConnected === false ? "Database unavailable" : `${simHistory.length} saved run(s)`} action="Refresh" onAction={loadSimHistory}>
+              <Card title="Simulation history" subtitle={simDbConnected === false ? "Database unavailable" : `${simHistory.length} saved run(s)`} action="Refresh" onAction={loadSimHistory}>
               <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto">
                 {simHistory.length ? simHistory.map((h, i) => (
-                  <div key={h.runId ?? i} className="rounded-xl bg-white/[.04] p-3">
+                  <button key={h.runId ?? i} onClick={() => setSelectedRunId(h.runId ?? String(i))} className={`w-full rounded-xl p-3 text-left transition ${selectedRunId === (h.runId ?? String(i)) ? "border border-[#e4aa56]/70 bg-[#4a1f14]" : "border border-transparent bg-white/[.04] hover:bg-white/[.09]"}`}>
                     <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{h.scenarioTitle}</span><span className="text-[10px] text-[#d8ccb0]/70">{h.endedAt ? new Date(h.endedAt).toLocaleString() : ""}</span></div>
                     <p className="mt-1 text-[11px] text-[#d8ccb0]/70">{h.options?.o1Label} · {h.options?.o2Label}</p>
                     <p className={`mt-1 text-[11px] ${h.outcome === "good" ? "text-emerald-300" : "text-amber-300"}`}>{h.outcomeText}</p>
-                  </div>
+                  </button>
                 )) : <p className="py-6 text-center text-xs text-[#d8ccb0]/70">{simDbConnected === false ? "Could not reach the database." : "No simulations saved yet. Finish and save a run in the simulator to see it here."}</p>}
               </div>
             </Card>
+            </div>
           </section>
-        )}
+          );
+        })()}
 
       </div>
       {toast && <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl bg-[#4a1f14] px-5 py-3 text-xs text-white shadow-xl print:hidden">{toast}</div>}
@@ -561,5 +676,74 @@ function SearchBox({ className, query, setQuery, results, open, setOpen }: { cla
         </div>
       )}
     </div>
+  );
+}
+
+function IncidentOverview({ incident, components }: { incident: Incident; components: InfrastructureComponent[] }) {
+  const origin = components.find((c) => c.id === incident.componentId);
+  const impact = incident.estimatedImpact;
+  const hrs = impact.estimatedRecoveryMinutes >= 60 ? `${Math.floor(impact.estimatedRecoveryMinutes / 60)}h ${impact.estimatedRecoveryMinutes % 60}m` : `${impact.estimatedRecoveryMinutes}m`;
+  const sevColor = incident.severity === "critical" ? "text-red-300" : incident.severity === "major" ? "text-orange-300" : "text-amber-300";
+  const stats: [string, string | number][] = [
+    ["Failed at source", impact.directlyFailedCount],
+    ["Downstream hit", impact.downstreamAffectedCount],
+    ["Population exposed", `${Math.round(impact.populationExposedPct)}%`],
+    ["Est. recovery", hrs],
+  ];
+  return (
+    <Card title="Incident overview" subtitle={incident.incidentId}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold capitalize">{incident.incidentType.replace(/_/g, " ")}</p>
+        <span className={`rounded-full bg-white/[.07] px-2.5 py-1 text-[10px] uppercase tracking-wider ${sevColor}`}>{incident.severity}</span>
+      </div>
+      <p className="mt-1 text-[11px] text-[#d8ccb0]/70">Started {new Date(incident.startTime).toLocaleString()} · <span className="capitalize">{incident.incidentStatus}</span></p>
+      <div className="mt-4 rounded-xl bg-white/[.04] p-3 text-xs"><p className="text-[10px] uppercase tracking-wider text-[#d8ccb0]/60">Origin asset</p><p className="mt-1 font-semibold">{origin?.name ?? incident.componentId}</p>{origin && <p className="text-[11px] text-[#d8ccb0]/70">{origin.category} · {origin.district}</p>}</div>
+      <div className="mt-3 grid grid-cols-2 gap-2">{stats.map(([label, value]) => <div key={label} className="rounded-xl bg-white/[.04] p-3 text-center"><p className="text-lg font-semibold">{value}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-[#d8ccb0]/70">{label}</p></div>)}</div>
+      <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+        <span className="rounded-full bg-red-400/15 px-2.5 py-1 text-red-300">{impact.statusBreakdown.offline} offline</span>
+        <span className="rounded-full bg-orange-400/15 px-2.5 py-1 text-orange-300">{impact.statusBreakdown.degraded} degraded</span>
+        <span className="rounded-full bg-amber-400/15 px-2.5 py-1 text-amber-300">{impact.statusBreakdown.backup} on backup</span>
+      </div>
+      {impact.affectedDistricts.length > 0 && <p className="mt-3 text-[11px] text-[#d8ccb0]/70"><span className="uppercase tracking-wider text-[#d8ccb0]/50">Districts: </span>{impact.affectedDistricts.join(", ")}</p>}
+      {impact.criticalFacilitiesAffected.length > 0 && <p className="mt-1.5 text-[11px] text-[#d8ccb0]/70"><span className="uppercase tracking-wider text-[#d8ccb0]/50">Critical facilities: </span>{impact.criticalFacilitiesAffected.join(", ")}</p>}
+    </Card>
+  );
+}
+
+function RunOverview({ run, onClose }: { run: SimFinishedRun; onClose: () => void }) {
+  const curve = run.curve?.length ? run.curve : [];
+  const W = 480, H = 190, L = 34, R = 10, T = 12, B = 26;
+  const maxT = Math.max(run.durationSimMinutes, ...curve.map((c) => c.t), 1);
+  const x = (t: number) => L + (t / maxT) * (W - L - R);
+  const y = (v: number) => T + (1 - Math.min(Math.max(v, 0), 100) / 100) * (H - T - B);
+  const pts = curve.map((c) => `${x(c.t).toFixed(1)},${y(c.sev).toFixed(1)}`).join(" ");
+  const peak = curve.reduce((m, c) => (c.sev > m.sev ? c : m), curve[0] ?? { t: 0, sev: run.maxSeverity });
+  const good = run.outcome === "good";
+  const hhmm = (m: number) => `${Math.floor(m / 60)}h ${Math.round(m % 60)}m`;
+  return (
+    <Card title="Run overview" subtitle={run.scenarioTitle} action="Close" onAction={onClose}>
+      <div className="flex items-center justify-between gap-2 text-[11px] text-[#d8ccb0]/70">
+        <span>{run.endedAt ? new Date(run.endedAt).toLocaleString() : ""}</span>
+        <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider ${good ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-300"}`}>{good ? "Contained" : "Escalated"}</span>
+      </div>
+      <p className="mt-2 text-xs leading-5">{run.outcomeText}</p>
+      <p className="mt-1 text-[11px] text-[#d8ccb0]/70">{run.options?.o1Label} · {run.options?.o2Label}</p>
+      <p className="mt-4 text-[10px] uppercase tracking-wider text-[#d8ccb0]/60">Severity over time</p>
+      {curve.length > 1 ? (
+        <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full rounded-xl bg-black/20" role="img" aria-label="Severity over simulated time">
+          {[0, 25, 50, 75, 100].map((v) => <g key={v}><line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="rgba(255,255,255,.12)" strokeDasharray="3 4" /><text x={L - 6} y={y(v) + 3} textAnchor="end" fontSize="9" fill="rgba(216,204,176,.7)">{v}</text></g>)}
+          {[0, .25, .5, .75, 1].map((f) => <text key={f} x={x(maxT * f)} y={H - 8} textAnchor="middle" fontSize="9" fill="rgba(216,204,176,.7)">{hhmm(maxT * f)}</text>)}
+          <polygon points={`${x(curve[0].t)},${y(0)} ${pts} ${x(curve[curve.length - 1].t)},${y(0)}`} fill="rgba(228,170,86,.18)" />
+          <polyline points={pts} fill="none" stroke="#e4aa56" strokeWidth="2" strokeLinejoin="round" />
+          <circle cx={x(peak.t)} cy={y(peak.sev)} r="4" fill="#f87171" />
+          <text x={Math.min(x(peak.t) + 8, W - 70)} y={Math.max(y(peak.sev) - 6, 12)} fontSize="10" fill="#f87171">Peak {Math.round(peak.sev)}</text>
+        </svg>
+      ) : <p className="mt-2 rounded-xl bg-black/20 p-4 text-center text-[11px] text-[#d8ccb0]/70">No severity data was recorded for this run.</p>}
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {[["Peak severity", Math.round(run.maxSeverity)], ["Final severity", Math.round(run.severity)], ["Duration", hhmm(run.durationSimMinutes)]].map(([label, value]) => <div key={label as string} className="rounded-xl bg-white/[.04] p-3 text-center"><p className="text-lg font-semibold">{value}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-[#d8ccb0]/70">{label}</p></div>)}
+      </div>
+      {run.kpis?.length > 0 && <div className="mt-2 grid grid-cols-2 gap-2">{run.kpis.map((k) => <div key={k.label} className="rounded-xl bg-white/[.04] p-3 text-center"><p className="text-base font-semibold">{k.value}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-[#d8ccb0]/70">{k.label}</p></div>)}</div>}
+      {run.events?.length > 0 && <div className="mt-4"><p className="text-[10px] uppercase tracking-wider text-[#d8ccb0]/60">Timeline</p><ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto pr-1">{run.events.map((e, i) => <li key={i} className="flex gap-2 text-[11px] leading-5 text-[#d8ccb0]/80"><span className="shrink-0 text-[#e4aa56]">{hhmm(e.t)}</span><span>{e.text}</span></li>)}</ul></div>}
+    </Card>
   );
 }

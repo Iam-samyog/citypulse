@@ -128,7 +128,7 @@ tailwind.config = { theme: { extend: {
 
 <!-- Left: crisis & development -->
 <div id="leftPanel" class="fixed top-4 left-4 bottom-[76px] z-10 w-[350px] max-w-[calc(100vw-2rem)] flex flex-col gap-2 pointer-events-none">
-  <a href="/dashboard" class="dashboard-link self-start pointer-events-auto" aria-label="Return to the CityPulse dashboard">
+  <a href="/dashboard" class="dashboard-link self-start pointer-events-auto" aria-label="Return to the Oracle of Ithaca dashboard">
     <span aria-hidden="true">←</span> Dashboard
   </a>
   <div class="glass rounded-2xl p-1.5 flex gap-1 pointer-events-auto shadow-2xl shrink-0">
@@ -1490,13 +1490,19 @@ function finish(t,text,kind){S.done=true;S.playing=false;ev(t,text,kind,S.src);i
   postToParent('finish',lastRun);
   UI.save.classList.remove('hidden');UI.save.disabled=false;UI.save.textContent='Save to history';
   setTimeout(()=>{if(S&&S.done){fadeArcs('crew');fadeArcs('dig');}},1500);}
-// --- bridge to the CityPulse dashboard (this page opens in its own tab; the dashboard
+// --- bridge to the Oracle of Ithaca dashboard (this page opens in its own tab; the dashboard
 // that opened it listens for these via window.opener, so it can mirror live insights
 // without this page ever talking to the database itself). ---
+let simChannel=null;
+try{if(typeof BroadcastChannel!=='undefined')simChannel=new BroadcastChannel('citysim');}catch(e){}
 function postToParent(type,data){
+  const msg=Object.assign({source:'citysim',type},data);
+  // BroadcastChannel reaches the dashboard in any tab, however this page was opened
+  // (links with target=_blank have no window.opener). Fall back to opener/parent otherwise.
+  try{if(simChannel){simChannel.postMessage(JSON.parse(JSON.stringify(msg)));return;}}catch(e){}
   try{
     const target=window.opener||(window.parent!==window?window.parent:null);
-    if(target)target.postMessage(Object.assign({source:'citysim',type},data),location.origin);
+    if(target)target.postMessage(msg,location.origin);
   }catch(e){}
 }
 function runSummary(t,text,kind){

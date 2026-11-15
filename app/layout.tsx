@@ -6,7 +6,7 @@ const heading = Metamorphous({ subsets: ["latin"], weight: "400", variable: "--f
 const alegreya = Alegreya({ subsets: ["latin"], variable: "--font-alegreya", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "CITYPULSE — Ithaca Operations Dashboard",
+  title: "Oracle of Ithaca — Ithaca Operations Dashboard",
   description:
     "An operational dashboard and interactive 3D reconstruction of Ithaca in the age of Odysseus.",
 };

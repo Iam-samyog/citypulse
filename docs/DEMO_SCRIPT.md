@@ -11,7 +11,7 @@ API calls — have a backup recorded clip in case wifi/API latency bites.
 
 ## 1. Opening — Enter Ithaca (30s)
 
-- Land on `/` ("CITYPULSE: The Odyssey of a City"), click "Enter Ithaca."
+- Land on `/` ("Oracle of Ithaca: The Odyssey of a City"), click "Enter Ithaca."
 - On `/city`: orbit the camera, point out the two districts and a few
   component types (substation, water pump, hospital). One sentence: "every
   box here is a real piece of infrastructure, connected to the ones it
