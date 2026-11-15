@@ -67,18 +67,31 @@ export function ChatbotWidget({ agent = "athena", getContext, quickPrompts }: Ch
   const [error, setError] = useState<string | null>(null);
   const nextId = useRef(1);
   const scrollRef = useRef<HTMLDivElement>(null);
+  /** Message id to bring to the top of the view (the question just asked), instead of scrolling to the end. */
+  const anchorId = useRef<number | null>(null);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    const box = scrollRef.current;
+    if (!box) return;
+    if (anchorId.current !== null) {
+      // An instant answer was just added: show the question at the top with its answer beneath,
+      // rather than jumping to the bottom of a tall answer and hiding the conversation.
+      const el = box.querySelector<HTMLElement>(`[data-mid="${anchorId.current}"]`);
+      anchorId.current = null;
+      if (el) { box.scrollTo({ top: Math.max(0, el.offsetTop - 14), behavior: "smooth" }); return; }
+    }
+    box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
 
   function askQuick(prompt: QuickPrompt) {
     if (sending) return;
     setError(null);
     const { text, charts } = prompt.answer();
+    const questionId = nextId.current++;
+    anchorId.current = questionId;
     setMessages((current) => [
       ...current,
-      { id: nextId.current++, role: "user", content: prompt.label },
+      { id: questionId, role: "user", content: prompt.label },
       { id: nextId.current++, role: "assistant", content: text, charts, instant: true },
     ]);
   }
@@ -148,7 +161,7 @@ export function ChatbotWidget({ agent = "athena", getContext, quickPrompts }: Ch
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-5 sm:px-10">
+      <div ref={scrollRef} className="relative flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-8">
         <div className="flex items-end gap-3">
           <Avatar agent={agent} size="lg" />
           <div className={bubble}>{tail}<p>{t.greeting}</p></div>
@@ -168,31 +181,31 @@ export function ChatbotWidget({ agent = "athena", getContext, quickPrompts }: Ch
         )}
 
         {messages.map((message) => message.role === "user" ? (
-          <div key={message.id} className="ml-auto max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-[#8a5a1f]/70 bg-[linear-gradient(180deg,#fbf0cf,#f1dfae)] p-4 font-heading text-base font-normal leading-7 text-black shadow-[0_5px_14px_rgba(60,30,10,.3),inset_0_0_0_2px_rgba(253,245,220,.7)]">
+          <div key={message.id} data-mid={message.id} className="ml-auto max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-[#8a5a1f]/70 bg-[linear-gradient(180deg,#fbf0cf,#f1dfae)] p-4 font-heading text-base font-normal leading-7 text-black shadow-[0_5px_14px_rgba(60,30,10,.3),inset_0_0_0_2px_rgba(253,245,220,.7)]">
             {message.content}
           </div>
         ) : (
           <div key={message.id} className="flex items-end gap-3">
             <Avatar agent={agent} size="lg" />
-            <div className={`${bubble} ${message.charts ? "w-full max-w-[min(100%,760px)]" : "max-w-[80%]"} whitespace-pre-wrap`}>
+            <div className={`${bubble} ${message.charts ? "w-full max-w-[min(100%,900px)]" : "max-w-[80%]"} whitespace-pre-wrap`}>
               {tail}
               {message.charts && (
-                <div className="-mx-4 -mt-4 mb-4 flex items-center gap-3 rounded-t-[15px] px-4 py-2 font-sans" style={{ background: t.plateBg }}>
+                <div className="-mx-4 -mt-4 mb-3 flex items-center gap-3 rounded-t-[15px] px-4 py-1.5 font-sans" style={{ background: t.plateBg }}>
                   <span aria-hidden className="text-[12px] text-[#e4aa56]">❖</span>
                   <span className="text-[12px] font-bold uppercase tracking-[.24em] text-[#f6e6c4]">{t.plate}</span>
                   <span aria-hidden className="h-[10px] flex-1" style={{ backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='10' viewBox='0 0 22 10'><path d='M0 9H16V1H5V6H11V4' fill='none' stroke='%23e4aa56' stroke-width='1.3' stroke-opacity='.65'/></svg>\")", backgroundRepeat: "repeat-x", backgroundSize: "22px 10px" }} />
                 </div>
               )}
-              <p className={message.charts ? "text-[19px] leading-8" : ""}>{message.content}</p>
+              <p className={message.charts ? "text-[17px] leading-7" : ""}>{message.content}</p>
               {message.charts && (
-                <div aria-hidden className="my-4 flex items-center gap-3 text-[#8a5a1f]">
+                <div aria-hidden className="my-3 flex items-center gap-3 text-[#8a5a1f]">
                   <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#8a5a1f]/60" />
                   <span className="text-[13px]">❦</span>
                   <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#8a5a1f]/60" />
                 </div>
               )}
               {message.charts && <ChatCharts charts={message.charts} />}
-              {message.instant && <p className="mt-4 flex items-center gap-2 font-sans text-[11px] uppercase tracking-[.16em] text-[#6b4a22]"><span aria-hidden className="text-[#8f1424]">❦</span>{t.tag}</p>}
+              {message.instant && <p className="mt-3 flex items-center gap-2 font-sans text-[11px] uppercase tracking-[.16em] text-[#6b4a22]"><span aria-hidden className="text-[#8f1424]">❦</span>{t.tag}</p>}
             </div>
           </div>
         ))}

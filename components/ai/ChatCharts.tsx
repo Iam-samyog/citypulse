@@ -19,12 +19,12 @@ const MEANDER = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 
 export function ChatCharts({ charts }: { charts: ChartSpec[] }) {
   return (
-    <div className="mt-1 grid gap-4">
+    <div className="mt-1 grid gap-3">
       {charts.map((c, i) => (
-        <figure key={i} className="relative rounded-xl border border-[#8a5a1f]/55 bg-[linear-gradient(180deg,#fdf5dc,#f6e7bd)] p-4 shadow-[inset_0_0_0_3px_rgba(253,245,220,.9),inset_0_0_0_4px_rgba(138,90,31,.3),0_3px_8px_rgba(60,30,10,.18)]">
-          <figcaption className="mb-3.5 flex items-center gap-2.5">
+        <figure key={i} className="relative rounded-xl border border-[#8a5a1f]/55 bg-[linear-gradient(180deg,#fdf5dc,#f6e7bd)] p-3 shadow-[inset_0_0_0_3px_rgba(253,245,220,.9),inset_0_0_0_4px_rgba(138,90,31,.3),0_3px_8px_rgba(60,30,10,.18)]">
+          <figcaption className="mb-2.5 flex items-center gap-2">
             <span aria-hidden className="text-[11px]" style={{ color: "#8f1424" }}>◆</span>
-            <span className="text-[13px] font-bold uppercase tracking-[.2em]" style={{ color: "#8f1424" }}>{c.title}</span>
+            <span className="text-[12px] font-bold uppercase tracking-[.16em]" style={{ color: "#8f1424" }}>{c.title}</span>
             <span aria-hidden className="h-[10px] min-w-6 flex-1" style={{ backgroundImage: MEANDER, backgroundRepeat: "repeat-x", backgroundSize: "22px 10px", opacity: .55 }} />
           </figcaption>
           {c.type === "bars" && <Bars {...c} />}
@@ -41,17 +41,17 @@ export function ChatCharts({ charts }: { charts: ChartSpec[] }) {
 function Bars({ items, unit = "", max }: Extract<ChartSpec, { type: "bars" }>) {
   const top = max ?? Math.max(...items.map((i) => i.value), 1);
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {items.map((it, i) => {
         const color = it.color ?? PALETTE[i % PALETTE.length];
         return (
-          <div key={it.label} className="grid grid-cols-[1.6rem_minmax(110px,34%)_1fr_auto] items-center gap-3 text-[14px]">
-            <span className="grid h-6 w-6 place-items-center rounded-full border text-[11px] font-bold" style={{ borderColor: `${BRONZE}88`, color: "#8f1424", background: "rgba(255,248,226,.8)" }}>{i + 1}</span>
+          <div key={it.label} className="grid grid-cols-[1.4rem_minmax(110px,34%)_1fr_auto] items-center gap-2.5 text-[13px]">
+            <span className="grid h-5 w-5 place-items-center rounded-full border text-[10px] font-bold" style={{ borderColor: `${BRONZE}88`, color: "#8f1424", background: "rgba(255,248,226,.8)" }}>{i + 1}</span>
             <span className="truncate font-semibold" style={{ color: INK }} title={it.label}>{it.label}</span>
-            <span className="h-3 overflow-hidden rounded-full shadow-[inset_0_1px_2px_rgba(59,36,18,.35)]" style={{ background: TRACK }}>
+            <span className="h-2.5 overflow-hidden rounded-full shadow-[inset_0_1px_2px_rgba(59,36,18,.35)]" style={{ background: TRACK }}>
               <span className="block h-full rounded-full shadow-[inset_0_-2px_0_rgba(0,0,0,.18),inset_0_1px_0_rgba(255,255,255,.3)]" style={{ width: `${Math.max(3, (it.value / top) * 100)}%`, background: `linear-gradient(90deg, ${color}, ${color}dd)` }} />
             </span>
-            <span className="min-w-14 text-right text-[15px] font-bold tabular-nums" style={{ color: INK }}>{Math.round(it.value * 10) / 10}{unit}</span>
+            <span className="min-w-12 text-right text-[14px] font-bold tabular-nums" style={{ color: INK }}>{Math.round(it.value * 10) / 10}{unit}</span>
           </div>
         );
       })}
@@ -64,8 +64,8 @@ function Donut({ segments, centerLabel }: Extract<ChartSpec, { type: "donut" }>)
   const R = 38, C = 2 * Math.PI * R;
   let offset = 0;
   return (
-    <div className="flex flex-wrap items-center gap-6">
-      <svg viewBox="0 0 100 100" className="h-36 w-36 shrink-0 -rotate-90" role="img" aria-label="Donut chart">
+    <div className="flex flex-wrap items-center gap-5">
+      <svg viewBox="0 0 100 100" className="h-28 w-28 shrink-0 -rotate-90" role="img" aria-label="Donut chart">
         <circle cx="50" cy="50" r="47" fill="none" stroke={`${BRONZE}55`} strokeWidth=".8" />
         <circle cx="50" cy="50" r="29" fill="none" stroke={`${BRONZE}55`} strokeWidth=".8" />
         <circle cx="50" cy="50" r={R} fill="none" stroke={TRACK} strokeWidth="14" />
@@ -77,9 +77,9 @@ function Donut({ segments, centerLabel }: Extract<ChartSpec, { type: "donut" }>)
         })}
         {centerLabel && <text x="50" y="50" textAnchor="middle" dominantBaseline="central" transform="rotate(90 50 50)" fontSize="15" fontWeight="700" fill={INK}>{centerLabel}</text>}
       </svg>
-      <ul className="min-w-[170px] flex-1 space-y-2 text-[14px]">
+      <ul className="min-w-[170px] flex-1 space-y-1.5 text-[13px]">
         {segments.map((s) => (
-          <li key={s.label} className="flex items-center gap-2.5 border-b border-dashed border-[#8a5a1f]/30 pb-1.5" style={{ color: INK }}>
+          <li key={s.label} className="flex items-center gap-2.5 border-b border-dashed border-[#8a5a1f]/30 pb-1" style={{ color: INK }}>
             <span className="h-3 w-3 rounded-sm shadow-[inset_0_-1px_0_rgba(0,0,0,.25)]" style={{ background: s.color }} />
             <span className="flex-1 font-semibold">{s.label}</span>
             <span className="text-[15px] font-bold tabular-nums">{s.value}</span>
@@ -91,7 +91,7 @@ function Donut({ segments, centerLabel }: Extract<ChartSpec, { type: "donut" }>)
 }
 
 function Line({ points, projectedFrom, unit = "" }: Extract<ChartSpec, { type: "line" }>) {
-  const W = 460, H = 160, L = 32, R = 10, T = 14, B = 26;
+  const W = 460, H = 130, L = 32, R = 10, T = 14, B = 26;
   const max = Math.max(...points.map((p) => p.value), 1) * 1.15;
   const x = (i: number) => L + (i / Math.max(points.length - 1, 1)) * (W - L - R);
   const y = (v: number) => T + (1 - v / max) * (H - T - B);
@@ -116,7 +116,7 @@ function Line({ points, projectedFrom, unit = "" }: Extract<ChartSpec, { type: "
 }
 
 function Columns({ items, highlight = [] }: Extract<ChartSpec, { type: "columns" }>) {
-  const W = 460, H = 140, L = 8, B = 22, T = 8;
+  const W = 460, H = 110, L = 8, B = 22, T = 8;
   const max = Math.max(...items.map((i) => i.value), 1);
   const bw = (W - L * 2) / items.length;
   return (
@@ -137,14 +137,14 @@ function Gauge({ value, label, color }: Extract<ChartSpec, { type: "gauge" }>) {
   const v = Math.max(0, Math.min(100, Math.round(value)));
   return (
     <div className="flex items-center gap-6">
-      <div className="relative w-44 shrink-0">
+      <div className="relative w-36 shrink-0">
         <svg viewBox="0 0 120 70" className="w-full" role="img" aria-label={`${label}: ${v} out of 100`}>
           <path d="M8 62 A52 52 0 0 1 112 62" pathLength="100" fill="none" stroke={TRACK} strokeWidth="11" strokeLinecap="round" />
           <path d="M8 62 A52 52 0 0 1 112 62" pathLength="100" fill="none" stroke={color} strokeWidth="11" strokeLinecap="round" strokeDasharray={`${v} 100`} />
         </svg>
-        <div className="absolute inset-x-0 bottom-0 text-center"><p className="text-3xl font-bold leading-none" style={{ color: INK }}>{v}</p></div>
+        <div className="absolute inset-x-0 bottom-0 text-center"><p className="text-2xl font-bold leading-none" style={{ color: INK }}>{v}</p></div>
       </div>
-      <p className="text-[15px] font-bold uppercase tracking-[.18em]" style={{ color }}>{label}</p>
+      <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color }}>{label}</p>
     </div>
   );
 }
