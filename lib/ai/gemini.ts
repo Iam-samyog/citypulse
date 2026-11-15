@@ -107,7 +107,12 @@ export async function generate(options: GenerateOptions): Promise<string> {
         if (status === 400 && level) continue;
         break;
       }
-      const data = await response.json();
+      let data: any;
+      try {
+        data = await response.json();
+      } catch {
+        throw new GeminiError("Gemini returned an unreadable response. Please try again.");
+      }
       const text = data?.candidates?.[0]?.content?.parts
         ?.map((part: { text?: string }) => part.text ?? "")
         .join("")
@@ -210,35 +215,12 @@ export async function consultOracle(input: OracleConsultationInput): Promise<AIR
 }
 
 async function generateGeminiResponse(prompt: string, temperature: number): Promise<AIResponseText> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-
-  let lastError = "Gemini did not return a response";
-  for (const model of GEMINI_MODELS) {
-    try {
-      const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature, maxOutputTokens: 700 },
-        }),
-        signal: AbortSignal.timeout(60_000),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-        return parseAIResponse(text);
-      }
-
-      lastError = `${response.status} ${await response.text()}`;
-      if (response.status !== 429 && response.status !== 503) break;
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : "request timed out";
-    }
-  }
-  throw new Error(`Gemini API error: ${lastError}`);
+  const text = await generate({
+    system: "You are an Oracle of Ithaca incident response analyst. Use only the evidence in the user message. Follow its requested response format.",
+    messages: [{ role: "user", content: prompt }],
+    temperature,
+  });
+  return parseAIResponse(text);
 }
 
 function buildAthenaPrompt(input: IncidentExplanationInput): string {

@@ -28,7 +28,7 @@ const THEME = {
     subtitle: "Ithaca AI Assistant",
     header: "#6b0f1a",
     accent: "#6b0f1a",
-    greeting: "Hello, Operator. Ask me about Ithaca's infrastructure, system health, or incident activity.",
+    greeting: "Hello, Operator. I'm Athena, your Ithaca operations assistant. I can summarize the live asset list, trace an incident, or help you choose a safe recovery order.",
     placeholder: "Ask Athena a question…",
     thinking: "Athena is thinking…",
     tag: "Instant insight · computed from live data",
