@@ -11,7 +11,7 @@ import type { InfrastructureComponent, InfrastructureDependency } from "@/types/
 
 const NAV = [
   ["Overview", "⌂"], ["Infrastructure", "⌘"], ["Incidents", "△"],
-  ["Advisors", "✦"]
+  ["Advisors", "✦"], ["Simulator", "◭"]
 ] as const;
 
 const ART: Record<string, { src: string; pos: string; full?: boolean }> = {
@@ -19,7 +19,23 @@ const ART: Record<string, { src: string; pos: string; full?: boolean }> = {
   Infrastructure: { src: "/art/odysseus-sea.jpg", pos: "50% 30%" },
   Incidents: { src: "/art/battle-crowd.jpg", pos: "50% 50%" },
   "Advisors": { src: "/art/athena-odysseus.jpg", pos: "50% 62%" },
+  Simulator: { src: "/art/odysseus-sea.jpg", pos: "50% 40%" },
 };
+
+interface SimKpi { label: string; value: string | number }
+interface SimLiveState {
+  scenario: string; scenarioTitle: string; clock: string; phase: string;
+  playing: boolean; done: boolean; severity: number; kpis: SimKpi[];
+}
+interface SimFinishedRun {
+  scenario: string; scenarioTitle: string;
+  options: { o1?: string; o1Label?: string; o2?: string; o2Label?: string };
+  outcome: string; outcomeText: string; durationSimMinutes: number;
+  severity: number; maxSeverity: number; kpis: SimKpi[];
+  curve: { t: number; sev: number }[]; events: { t: number; text: string; kind: string }[];
+  startedAt?: string; endedAt?: string;
+}
+interface SimHistoryEntry extends SimFinishedRun { _id?: string; runId?: string }
 
 const CATEGORY = {
   electrical: { label: "Electrical", color: "#f2b963" },
@@ -41,12 +57,43 @@ export function AdminDashboard() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [athenaOpen, setAthenaOpen] = useState(false);
   const chatFull = active === "Advisors" && athenaOpen;
+  const hideHero = chatFull || active === "Simulator";
   const [range, setRange] = useState<"24h" | "7d" | "30d">("24h");
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState("");
   const [prefs, setPrefs] = useState({ autoRefresh: true, compact: false, alerts: true });
   const menuRef = useRef<HTMLDivElement>(null);
   const [dataSource, setDataSource] = useState<"loading" | "mongodb" | "fixture">("loading");
+
+  const [simLive, setSimLive] = useState<SimLiveState | null>(null);
+  const [simFinished, setSimFinished] = useState<SimFinishedRun | null>(null);
+  const [simHistory, setSimHistory] = useState<SimHistoryEntry[]>([]);
+  const [simDbConnected, setSimDbConnected] = useState<boolean | null>(null);
+  const [simCurve, setSimCurve] = useState<number[]>([]);
+
+  const loadSimHistory = () => {
+    fetch("/api/simulator-history?limit=20").then(async (r) => r.json()).then((data) => {
+      setSimDbConnected(data.connected !== false);
+      setSimHistory(data.items ?? []);
+    }).catch(() => setSimDbConnected(false));
+  };
+  useEffect(() => { loadSimHistory(); }, []);
+  useEffect(() => {
+    // The simulator opens in its own window (window.opener links back here) and
+    // reports progress via postMessage — live ticks while it runs, the finished
+    // summary, then a confirmation once the user presses "Save to history" there.
+    function onMessage(e: MessageEvent) {
+      const data = e.data;
+      if (!data || data.source !== "citysim") return;
+      if (data.type === "start" || data.type === "reset") { setSimLive(null); setSimFinished(null); setSimCurve([]); }
+      if (data.type === "tick") { setSimLive(data as SimLiveState); setSimCurve((c) => [...c, data.severity].slice(-120)); }
+      if (data.type === "finish") { setSimLive(data as SimLiveState); setSimFinished(data as SimFinishedRun); setSimCurve((c) => [...c, data.severity].slice(-120)); }
+      if (data.type === "saved") { setToast(`Saved "${data.scenarioTitle}" to simulation history`); loadSimHistory(); }
+      if (data.type === "saveFailed") setToast("Could not reach the database — run was not saved");
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
 
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -119,7 +166,11 @@ export function AdminDashboard() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const title = active === "Overview" ? "Welcome back, Operator" : `${active} · ${district ?? "All districts"}`;
+  const title = active === "Overview" ? "Welcome back, Operator" : active === "Simulator" ? "3D Crisis Simulator" : `${active} · ${district ?? "All districts"}`;
+  function handleNavClick(label: string) {
+    setActive(label);
+    if (label === "Simulator") window.open("/simulator/index.html", "_blank");
+  }
   const needle = query.trim().toLowerCase();
   const results = useMemo(() => {
     if (!needle) return [] as { key: string; kind: string; label: string; hint: string; run: () => void }[];
@@ -165,7 +216,7 @@ export function AdminDashboard() {
         </div>
         <nav className="flex-1 space-y-1 px-3 py-6">
           <p className="mb-3 px-3 text-[10px] uppercase tracking-[.24em] text-white/25">Workspace</p>
-          {NAV.map(([label, glyph]) => <button key={label} onClick={() => setActive(label)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-left text-sm transition ${active === label ? "bg-[#5a2616] text-white" : "text-white/45 hover:bg-white/[.05] hover:text-white/80"}`}><span className="grid h-14 w-9 place-items-center"><Torch lit={active === label} className="h-14 w-7" /></span><span>{label}</span>{label === "Incidents" && prefs.alerts && activeIncidents.length > 0 && <span className="ml-auto rounded-full bg-red-400 px-2 py-0.5 text-[10px] text-white">{activeIncidents.length}</span>}</button>)}
+          {NAV.map(([label, glyph]) => <button key={label} onClick={() => handleNavClick(label)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-left text-sm transition ${active === label ? "bg-[#5a2616] text-white" : "text-white/45 hover:bg-white/[.05] hover:text-white/80"}`}><span className="grid h-14 w-9 place-items-center"><Torch lit={active === label} className="h-14 w-7" /></span><span>{label}</span>{label === "Incidents" && prefs.alerts && activeIncidents.length > 0 && <span className="ml-auto rounded-full bg-red-400 px-2 py-0.5 text-[10px] text-white">{activeIncidents.length}</span>}</button>)}
         </nav>
         <div className="m-4 rounded-2xl border border-white/10 bg-white/[.04] p-4">
           <p className="text-[10px] uppercase tracking-[.2em] text-[#e4aa56]">Virtual city</p>
@@ -177,10 +228,11 @@ export function AdminDashboard() {
 
       <header className="sticky top-0 z-40 print:hidden flex min-h-[76px] items-center justify-between gap-4 border-b border-[#c9a24b]/25 bg-[#1a0c0a]/55 backdrop-blur-xl px-4 backdrop-blur-xl sm:px-7">
         <div className="flex items-center gap-2.5 lg:hidden"><img src="/art/helmet.png" alt="" aria-hidden className="h-9 w-auto" /><div><p className="font-paint text-lg tracking-[.12em]">ITHACA</p><p className="text-[10px] uppercase tracking-widest text-[#d8ccb0]/70">Operations</p></div></div>
-        <div className="hidden sm:block"><p className="text-lg font-semibold">{active}</p><p className="mt-0.5 text-[12px] text-[#d8ccb0]/70">{active === "Overview" ? "Monitor city systems and operational readiness" : active === "Infrastructure" ? "Every monitored asset across the city" : active === "Incidents" ? "Active and historical incidents" : "Athena and Oracle intelligence layer"}</p></div>
+        <div className="hidden sm:block"><p className="text-lg font-semibold">{active}</p><p className="mt-0.5 text-[12px] text-[#d8ccb0]/70">{active === "Overview" ? "Monitor city systems and operational readiness" : active === "Infrastructure" ? "Every monitored asset across the city" : active === "Incidents" ? "Active and historical incidents" : active === "Simulator" ? "Live insights from the 3D crisis simulator" : "Athena and Oracle intelligence layer"}</p></div>
         <div className="flex items-center gap-2 sm:gap-3">
           <SearchBox className="hidden h-10 w-64 md:flex" query={query} setQuery={setQuery} results={results} open={searchOpen} setOpen={setSearchOpen} />
-          <span className="flex h-10 items-center gap-2 rounded-xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] px-3 text-[11px] uppercase tracking-wider text-[#d8ccb0]/70"><span className={`h-2 w-2 rounded-full ${dataSource === "mongodb" ? "bg-emerald-400/150" : dataSource === "fixture" ? "bg-amber-400" : "animate-pulse bg-slate-300"}`} />{dataSource === "mongodb" ? "Live data" : dataSource === "fixture" ? "Demo data" : "Connecting"}</span>
+          <span className="flex h-10 items-center gap-2 rounded-xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] px-3 text-[11px] uppercase tracking-wider text-[#d8ccb0]/70"><span className={`h-2 w-2 rounded-full ${dataSource === "mongodb" ? "bg-emerald-400" : dataSource === "fixture" ? "bg-amber-400" : "animate-pulse bg-slate-300"}`} />{dataSource === "mongodb" ? "Live data" : dataSource === "fixture" ? "Demo data" : "Connecting"}</span>
+          <a href="/simulator/index.html" target="_blank" className="scroll-btn text-xs uppercase tracking-wider">Open Simulator ↗</a>
           <Link href="/city" className="scroll-btn text-xs uppercase tracking-wider">3D City ↗</Link>
         </div>
       </header>
@@ -188,10 +240,10 @@ export function AdminDashboard() {
       <div className="mx-auto max-w-[1500px] p-4 sm:p-7">
         <SearchBox className="mb-3 flex h-11 md:hidden print:hidden" query={query} setQuery={setQuery} results={results} open={searchOpen} setOpen={setSearchOpen} />
         <nav className="-mx-1 mb-4 flex gap-1 overflow-x-auto pb-1 lg:hidden print:hidden">
-          {NAV.map(([label]) => <button key={label} onClick={() => setActive(label)} className={`shrink-0 rounded-full px-4 py-2 text-[13px] ${active === label ? "bg-[#4a1f14] text-white" : "bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 border border-[#c9a24b]/25"}`}>{label}</button>)}
+          {NAV.map(([label]) => <button key={label} onClick={() => handleNavClick(label)} className={`shrink-0 rounded-full px-4 py-2 text-[13px] ${active === label ? "bg-[#4a1f14] text-white" : "bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 border border-[#c9a24b]/25"}`}>{label}</button>)}
         </nav>
 
-        <section className={`${chatFull ? "hidden" : ""} relative z-30 flex min-h-[300px] flex-col justify-end gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between sm:p-10 sm:min-h-[380px]`}>
+        <section className={`${hideHero ? "hidden" : ""} relative z-30 flex min-h-[300px] flex-col justify-end gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between sm:p-10 sm:min-h-[380px]`}>
           <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl border border-[#c9a24b]/30 bg-[#1c0e0b] shadow-[0_18px_50px_rgba(0,0,0,.5)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={ART[active].src} alt="" className={`absolute left-0 top-0 h-full w-full max-w-none object-cover ${ART[active].full ? "" : "sm:w-[112%]"}`} style={{ objectPosition: ART[active].pos }} />
@@ -210,7 +262,7 @@ export function AdminDashboard() {
           </div>
         </section>
 
-        <div className={`${chatFull ? "hidden" : ""} my-6 flex flex-wrap items-center gap-2 print:hidden`}>
+        <div className={`${hideHero ? "hidden" : ""} my-6 flex flex-wrap items-center gap-2 print:hidden`}>
           <span className="text-[11px] uppercase tracking-wider text-[#d8ccb0]/70">District</span>
           {[null, ...districts.map((d) => d.name)].map((name) => <button key={name ?? "all"} onClick={() => setDistrict(name)} className={`rounded-full border px-3.5 py-1.5 text-[13px] transition ${district === name ? "border-[#4a1f14] bg-[#4a1f14] text-white" : "border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 hover:bg-white/10"}`}>{name ?? "All districts"}</button>)}
         </div>
@@ -274,6 +326,43 @@ export function AdminDashboard() {
               <Card title="Oracle" subtitle="Strategic foresight"><p className="text-xs leading-6 text-[#d8ccb0]/70">Reviews resilience and backup endurance to forecast cascading risk. Current backup coverage is {coverage}%. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents are ready for review."}</p><Link href="/city" className="mt-4 inline-block rounded-xl bg-[#947ac2] px-4 py-2.5 text-xs font-semibold text-white">Consult Oracle in 3D city ↗</Link></Card>
             </section>)}
 
+        {active === "Simulator" && (
+          <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_1.1fr]">
+            <div className="flex flex-col gap-5">
+              <Card title="3D crisis simulator" subtitle="Opens full-screen in its own window">
+                <p className="text-xs leading-6 text-[#d8ccb0]/70">Set off a disaster, watch the city react in 3D, then press <b className="text-[#e4aa56]">Save to history</b> inside the simulator when it's done. The save shows up on this dashboard the moment it succeeds.</p>
+                <a href="/simulator/index.html" target="_blank" className="mt-4 block w-full rounded-xl bg-[#4a1f14] px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-white">Open 3D Simulator ↗</a>
+              </Card>
+              <Card title="Live insights" subtitle={simLive ? simLive.scenarioTitle : "Waiting for a simulation"}>
+                {simLive ? (
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-[#d8ccb0]/70">
+                      <span>{simLive.clock} · {simLive.phase}</span>
+                      <span className={`rounded-full px-2 py-1 text-[10px] uppercase ${simLive.severity < 15 ? "bg-emerald-400/15 text-emerald-300" : simLive.severity < 35 ? "bg-amber-400/15 text-amber-300" : simLive.severity < 60 ? "bg-orange-400/15 text-orange-300" : "bg-red-400/15 text-red-300"}`}>Severity {simLive.severity}</span>
+                    </div>
+                    {simCurve.length > 1 && <SeverityChart values={simCurve} />}
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {simLive.kpis.map((k) => <div key={k.label} className="rounded-xl bg-white/[.04] p-3 text-center"><p className="text-lg font-semibold">{k.value}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-[#d8ccb0]/70">{k.label}</p></div>)}
+                    </div>
+                    {simFinished && <p className="mt-3 text-[11px] text-[#d8ccb0]/70">{simFinished.outcomeText} Press Save to history in the simulator to keep this run.</p>}
+                  </div>
+                ) : <p className="text-xs leading-6 text-[#d8ccb0]/70">No simulation running right now. Open the 3D simulator and set off a disaster — KPIs, severity and the final outcome will stream in here live.</p>}
+              </Card>
+            </div>
+            <Card title="Simulation history" subtitle={simDbConnected === false ? "Database unavailable" : `${simHistory.length} saved run(s)`} action="Refresh" onAction={loadSimHistory}>
+              <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto">
+                {simHistory.length ? simHistory.map((h, i) => (
+                  <div key={h.runId ?? i} className="rounded-xl bg-white/[.04] p-3">
+                    <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{h.scenarioTitle}</span><span className="text-[10px] text-[#d8ccb0]/70">{h.endedAt ? new Date(h.endedAt).toLocaleString() : ""}</span></div>
+                    <p className="mt-1 text-[11px] text-[#d8ccb0]/70">{h.options?.o1Label} · {h.options?.o2Label}</p>
+                    <p className={`mt-1 text-[11px] ${h.outcome === "good" ? "text-emerald-300" : "text-amber-300"}`}>{h.outcomeText}</p>
+                  </div>
+                )) : <p className="py-6 text-center text-xs text-[#d8ccb0]/70">{simDbConnected === false ? "Could not reach the database." : "No simulations saved yet. Finish and save a run in the simulator to see it here."}</p>}
+              </div>
+            </Card>
+          </section>
+        )}
+
       </div>
       {toast && <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl bg-[#4a1f14] px-5 py-3 text-xs text-white shadow-xl print:hidden">{toast}</div>}
     </main>
@@ -282,6 +371,13 @@ export function AdminDashboard() {
 
 function Kpi({ label, value, change, glyph, color, onClick }: { label: string; value: string | number; change: string; glyph: string; color: string; onClick?: () => void }) { return <article onClick={onClick} className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md rounded-2xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] p-4 shadow-[0_10px_34px_rgba(0,0,0,.4)] sm:p-5"><div className="flex items-start justify-between"><p className="text-[12px] font-medium text-[#d8ccb0]/70">{label}</p><span className="grid h-9 w-9 place-items-center rounded-xl text-base" style={{ color, backgroundColor: `${color}12` }}>{glyph}</span></div><p className="mt-3 text-3xl font-semibold tracking-tight">{value}</p><p className="mt-2 text-[11px] text-[#d8ccb0]/70">{change}</p></article>; }
 function Card({ title, subtitle, action, onAction, children }: { title: string; subtitle: string; action?: string; onAction?: () => void; children: React.ReactNode }) { return <article className="rounded-2xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] p-5 shadow-[0_10px_34px_rgba(0,0,0,.4)]"><header className="mb-5 flex items-start justify-between gap-3"><div><h2 className="font-heading text-lg font-normal text-white">{title}</h2><p className="mt-1 text-[12px] text-[#d8ccb0]/70">{subtitle}</p></div>{action && <button onClick={onAction} className="rounded-lg border border-[#c9a24b]/25 px-3 py-2 text-[11px] text-[#d8ccb0]/70 hover:bg-white/10 print:hidden">{action}</button>}</header>{children}</article>; }
+function SeverityChart({ values }: { values: number[] }) {
+  const w = 300, h = 64, max = 100;
+  const points = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - (Math.min(v, max) / max) * (h - 6) - 3}`).join(" ");
+  const last = values[values.length - 1] ?? 0;
+  const color = last < 15 ? "#4ade80" : last < 35 ? "#fbbf24" : last < 60 ? "#fb923c" : "#f87171";
+  return <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="mt-3 h-16 w-full rounded-lg bg-black/20"><polyline points={points} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" /></svg>;
+}
 function HealthChart({ health, range, seed }: { health: number; range: "24h" | "7d" | "30d"; seed: number }) {
   const n = 16, amp = range === "24h" ? 4 : range === "7d" ? 7 : 10;
   const ys = Array.from({ length: n }, (_, i) => { const v = i === n - 1 ? health : Math.min(100, health - Math.abs(Math.sin(i * 1.7 + seed)) * amp - (n - 1 - i) * 0.1); return 130 - ((v - 60) / 40) * 118; });
@@ -298,11 +394,11 @@ function CategoryBars({ counts }: { counts: Record<keyof typeof CATEGORY, number
 }
 function IncidentList({ incidents }: { incidents: Incident[] }) {
   if (!incidents.length) return <EmptyActivity />;
-  return <div className="divide-y divide-[#c9a24b]/20">{incidents.map((incident) => <div key={incident.incidentId} className="flex items-start gap-3 py-3"><span className={`mt-1 h-2 w-2 rounded-full ${incident.severity === "critical" ? "bg-red-400/150" : incident.severity === "major" ? "bg-orange-500" : "bg-amber-400"}`} /><div className="flex-1"><p className="text-xs font-semibold capitalize">{incident.incidentType.replace(/_/g, " ")} <span className="ml-1 rounded-full bg-white/[.07] px-2 py-0.5 text-[10px] font-normal uppercase text-[#d8ccb0]/70">{incident.incidentStatus}</span></p><p className="mt-1 text-[12px] text-[#d8ccb0]/70">{incident.componentId} · {incident.estimatedImpact.downstreamAffectedCount} downstream assets · {incident.estimatedImpact.affectedDistricts.join(", ") || "no districts"}</p></div><span className="text-[11px] text-[#d8ccb0]/70">{new Date(incident.startTime).toLocaleDateString()}</span></div>)}</div>;
+  return <div className="divide-y divide-[#c9a24b]/20">{incidents.map((incident) => <div key={incident.incidentId} className="flex items-start gap-3 py-3"><span className={`mt-1 h-2 w-2 rounded-full ${incident.severity === "critical" ? "bg-red-400" : incident.severity === "major" ? "bg-orange-500" : "bg-amber-400"}`} /><div className="flex-1"><p className="text-xs font-semibold capitalize">{incident.incidentType.replace(/_/g, " ")} <span className="ml-1 rounded-full bg-white/[.07] px-2 py-0.5 text-[10px] font-normal uppercase text-[#d8ccb0]/70">{incident.incidentStatus}</span></p><p className="mt-1 text-[12px] text-[#d8ccb0]/70">{incident.componentId} · {incident.estimatedImpact.downstreamAffectedCount} downstream assets · {incident.estimatedImpact.affectedDistricts.join(", ") || "no districts"}</p></div><span className="text-[11px] text-[#d8ccb0]/70">{new Date(incident.startTime).toLocaleDateString()}</span></div>)}</div>;
 }
 function Donut({ counts, total }: { counts: { operational: number; backup: number; degraded: number; offline: number }; total: number }) { const op = total ? counts.operational / total * 100 : 100; const backup = total ? counts.backup / total * 100 : 0; const degraded = total ? counts.degraded / total * 100 : 0; return <div className="relative h-36 w-36 rounded-full" style={{ background: `conic-gradient(#3a9d76 0 ${op}%, #e8b75f ${op}% ${op + backup}%, #e78452 ${op + backup}% ${op + backup + degraded}%, #da5a5a ${op + backup + degraded}% 100%)` }}><div className="absolute inset-5 grid place-items-center rounded-full bg-[#1f100d]/55 backdrop-blur-[3px] text-center"><div><p className="text-2xl font-semibold">{total || "—"}</p><p className="text-[10px] uppercase tracking-wider text-[#d8ccb0]/70">Assets</p></div></div></div>; }
 function Legend({ color, label, value }: { color: string; label: string; value: number }) { return <div className="flex items-center text-[12px]"><span className="mr-2 h-2 w-2 rounded-full" style={{ backgroundColor: color }} /><span className="text-[#d8ccb0]/70">{label}</span><span className="ml-auto font-semibold">{value}</span></div>; }
-function Agent({ name, role, color, letter }: { name: string; role: string; color: string; letter: string }) { return <div className="mb-2 flex items-center gap-3 rounded-xl border border-[#c9a24b]/25 p-3"><span className="grid h-9 w-9 place-items-center rounded-full font-paint" style={{ color, backgroundColor: `${color}14` }}>{letter}</span><div><p className="text-xs font-semibold">{name}</p><p className="mt-0.5 text-[11px] text-[#d8ccb0]/70">{role}</p></div><span className="ml-auto h-2 w-2 rounded-full bg-emerald-400/150" /></div>; }
+function Agent({ name, role, color, letter }: { name: string; role: string; color: string; letter: string }) { return <div className="mb-2 flex items-center gap-3 rounded-xl border border-[#c9a24b]/25 p-3"><span className="grid h-9 w-9 place-items-center rounded-full font-paint" style={{ color, backgroundColor: `${color}14` }}>{letter}</span><div><p className="text-xs font-semibold">{name}</p><p className="mt-0.5 text-[11px] text-[#d8ccb0]/70">{role}</p></div><span className="ml-auto h-2 w-2 rounded-full bg-emerald-400" /></div>; }
 function EmptyActivity() { return <div className="grid min-h-40 place-items-center text-center"><div><span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-emerald-400/15 text-emerald-300">✓</span><p className="mt-3 text-xs font-semibold">No recent incidents</p><p className="mt-1 text-[12px] text-[#d8ccb0]/70">All monitored systems are stable.</p></div></div>; }
 function LoadingRows() { return <>{[0,1,2,3].map((item) => <div key={item} className="my-2 h-12 animate-pulse rounded-xl bg-white/[.07]" />)}</>; }
 

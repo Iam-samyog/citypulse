@@ -10,17 +10,30 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
 
-  const db = await getDb();
-  const collection = db.collection<Incident>(collections.incidents);
+  try {
+    const db = await getDb();
+    const collection = db.collection<Incident>(collections.incidents);
 
-  if (id) {
-    const incident = await collection.findOne({ incidentId: id });
-    if (!incident) {
-      return NextResponse.json({ error: "Incident not found" }, { status: 404 });
+    if (id) {
+      const incident = await collection.findOne({ incidentId: id });
+      if (!incident) {
+        return NextResponse.json({ error: "Incident not found" }, { status: 404 });
+      }
+      return NextResponse.json({ incident, source: "mongodb" });
     }
-    return NextResponse.json({ incident });
-  }
 
-  const incidents = await collection.find({}).sort({ startTime: -1 }).toArray();
-  return NextResponse.json({ incidents });
+    const incidents = await collection.find({}).sort({ startTime: -1 }).toArray();
+    return NextResponse.json({ incidents, source: "mongodb" });
+  } catch (error) {
+    console.warn("MongoDB unavailable; serving an empty incident fixture.", error);
+
+    if (id) {
+      return NextResponse.json(
+        { error: "Incident data is temporarily unavailable", source: "fixture" },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json({ incidents: [], source: "fixture" });
+  }
 }

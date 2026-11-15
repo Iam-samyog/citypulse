@@ -1,0 +1,2254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ithaca — Crisis & Development Simulator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Metamorphous&family=Cinzel:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  fontFamily: { display: ['Metamorphous','Cinzel','serif'], sans: ['Inter','sans-serif'] },
+  colors: { bronze: { 300:'#e8c48a', 400:'#d6a35c', 500:'#b9843d', 600:'#8f6127' } }
+}}};
+</script>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b1020}
+  canvas{display:block}
+  .glass{background:rgba(20,14,10,.64);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(214,163,92,.28)}
+  .meander{background-image:repeating-linear-gradient(90deg,rgba(214,163,92,.7) 0 6px,transparent 6px 12px);height:3px}
+  input[type=range]{accent-color:#d6a35c}
+  .lbl{font-family:Metamorphous,Cinzel,serif;transform:translate(-50%,-130%);white-space:nowrap;transition:opacity .2s}
+  .lbl::after{content:'';position:absolute;left:50%;top:100%;width:1px;height:12px;background:rgba(232,196,138,.7)}
+  .sel{background:rgba(0,0,0,.35);border:1px solid rgba(214,163,92,.3);border-radius:8px;padding:5px 6px;color:#f5f5f4;font-size:12px;outline:none;width:100%}
+  .sel option{background:#1c140e}
+  .btn{border:1px solid rgba(214,163,92,.35);border-radius:10px;padding:7px 10px;font-size:12px;color:#e7e5e4;background:rgba(0,0,0,.25);transition:background .15s}
+  .btn:hover{background:rgba(214,163,92,.18)}
+  .btn-fire{border:1px solid rgba(255,120,60,.6);border-radius:10px;padding:7px 10px;font-size:13px;font-weight:600;color:#fff;background:linear-gradient(180deg,#c2410c,#7c2d12);box-shadow:0 0 18px rgba(255,90,30,.35)}
+  .btn-fire:hover{filter:brightness(1.15)}
+  .tab{flex:1;padding:6px 2px;border-radius:9px;font-size:11px;color:#a8a29e;border:1px solid transparent;line-height:1.15}
+  .tab b{display:block;font-size:15px;line-height:1.1}
+  .tab:hover{color:#e7e5e4;background:rgba(214,163,92,.1)}
+  .tab.on{color:#e8c48a;background:rgba(214,163,92,.2);border-color:rgba(214,163,92,.45)}
+  .spd{padding:2px 8px;border-radius:999px;border:1px solid rgba(214,163,92,.3);color:#a8a29e}
+  .spd.on{background:rgba(214,163,92,.25);color:#e8c48a}
+  .kpi{border-radius:10px;background:rgba(0,0,0,.28);padding:6px 4px}
+  .kpi b{display:block;font-family:Metamorphous,Cinzel,serif;font-size:17px;color:#e8c48a;font-variant-numeric:tabular-nums}
+  .kpi span{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#a8a29e}
+  .ev{display:grid;grid-template-columns:44px 14px 1fr;gap:4px;text-align:left;width:100%;padding:6px 6px;border-radius:8px;font-size:12px;line-height:1.35;animation:evin .5s ease}
+  .ev:hover{background:rgba(214,163,92,.14)}
+  .evt{font-family:ui-monospace,monospace;font-size:10px;color:#e8c48a;padding-top:2px}
+  .evi{font-size:10px;padding-top:2px}
+  .evx{color:#e7e5e4}
+  .evempty{font-size:12px;color:#a8a29e;padding:6px}
+  @keyframes evin{from{opacity:0;transform:translateY(-6px);background:rgba(255,120,60,.25)}to{opacity:1;transform:none}}
+  .sysrow{display:grid;grid-template-columns:10px 1fr auto;column-gap:6px;align-items:center;width:100%;text-align:left;padding:4px 6px;border-radius:8px;font-size:12px}
+  .sysrow:hover{background:rgba(214,163,92,.14)}
+  .sysrow .dot{width:8px;height:8px;border-radius:50%}
+  .sysrow .nm{color:#e7e5e4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sysrow .st{font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+  .sysrow .ex{grid-column:2/4;font-size:10px;color:#a8a29e}
+  .lbl .chip{display:none;margin-left:6px;padding:0 5px;border-radius:4px;font-family:Inter,sans-serif;font-size:9px;font-weight:600;letter-spacing:.04em;color:#111;text-transform:uppercase;vertical-align:1px}
+  body.sim-on .intro{display:none}
+  .mode,.tab,.counsel b{font-family:Metamorphous,Cinzel,serif}
+  .mode{flex:1;padding:8px 6px;border-radius:12px;font-size:12px;font-weight:600;color:#a8a29e;letter-spacing:.02em}
+  .mode:hover{color:#e7e5e4}
+  .mode.on{background:linear-gradient(180deg,rgba(214,163,92,.35),rgba(214,163,92,.15));color:#f5deb3;box-shadow:inset 0 0 0 1px rgba(214,163,92,.5)}
+  .devrow{display:flex;align-items:center;gap:10px;padding:8px;border-radius:12px;background:rgba(0,0,0,.25);margin-top:6px}
+  .devrow .ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:15px;background:rgba(255,255,255,.06)}
+  .stp{width:30px;height:30px;border-radius:9px;border:1px solid rgba(214,163,92,.35);color:#e7e5e4;font-size:16px;line-height:1}
+  .stp:hover:not(:disabled){background:rgba(214,163,92,.2)}
+  .stp.add{background:rgba(214,163,92,.22);color:#f5deb3}
+  .stp:disabled{opacity:.3;cursor:not-allowed}
+  .oicon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font-size:16px}
+  .counsel{display:block;text-align:left;width:100%;padding:7px 9px;border-radius:10px;border:1px solid rgba(156,195,230,.45);background:rgba(156,195,230,.1);transition:background .15s}
+  .counsel:hover{background:rgba(156,195,230,.22)}
+  .counsel b{display:block;font-size:12px;color:#dbeafe;font-weight:600}
+  .counsel span{display:block;font-size:10.5px;color:#a8a29e}
+  .gz{width:28px;height:28px;border-radius:8px;border:1px solid rgba(214,163,92,.35);background:rgba(20,15,10,.85);color:#f5deb3;font-size:15px;line-height:1}
+  .gz:hover{background:rgba(214,163,92,.22)}
+  .glabel.minor{display:none}
+  svg.gnear .glabel.minor,svg.gfocus .gnode.on .glabel.minor{display:block}
+  svg.gfocus .gnode:not(.on) .glabel{display:none}
+  .gedge{fill:none;stroke-width:1;opacity:.38;transition:opacity .2s;vector-effect:non-scaling-stroke}
+  svg.gfocus .gedge{opacity:.05}
+  svg.gfocus .gedge.on{opacity:1;stroke-width:1.8}
+  .gnode{cursor:pointer;transition:opacity .2s}
+  svg.gfocus .gnode{opacity:.22}
+  svg.gfocus .gnode.on{opacity:1}
+  .gring{fill:none;stroke-width:2.5;opacity:0}
+  .galert .gring{opacity:.95}
+  .gbad .gring{animation:gpulse 1s ease-in-out infinite}
+  @keyframes gpulse{50%{opacity:.25}}
+  .gic{text-anchor:middle;font-family:'Segoe UI Symbol','Noto Sans Symbols 2','DejaVu Sans',sans-serif;pointer-events:none}
+  .glabel{fill:#d6d3d1;font-size:8.5px;text-anchor:middle;paint-order:stroke;stroke:#0b0906;stroke-width:3px;font-family:Inter,sans-serif;pointer-events:none}
+  .gtier{fill:#8a7f72;font-size:9.5px;letter-spacing:.14em;font-family:Metamorphous,Cinzel,serif}
+  .gact{fill:none;stroke-width:2.4;vector-effect:non-scaling-stroke;stroke-dasharray:6 4;animation:gdash .8s linear infinite;opacity:.95;pointer-events:none}
+  @keyframes gdash{to{stroke-dashoffset:-20}}
+  .gnew circle:nth-child(2){filter:drop-shadow(0 0 5px #f5deb3)}
+  .glegend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  .gactkey{background:repeating-linear-gradient(90deg,#ff4d1f 0 5px,transparent 5px 8px)}
+  .devm{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,.05)}
+  .devm span:first-child{color:#a8a29e}
+  .devm b{color:#f5f5f4;font-weight:600}
+  .devm span:last-child{text-align:right;white-space:nowrap}
+  .scrolly::-webkit-scrollbar{width:4px}.scrolly::-webkit-scrollbar-thumb{background:rgba(214,163,92,.4);border-radius:4px}
+</style>
+</head>
+<body class="font-sans text-stone-100 select-none">
+
+<div id="scene" class="fixed inset-0"></div>
+<div id="labels" class="fixed inset-0 pointer-events-none"></div>
+
+<div id="loader" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0e0b08] transition-opacity duration-700">
+  <div class="font-display text-4xl tracking-[.3em] text-bronze-300">ΙΘΑΚΗ</div>
+  <div id="loadMsg" class="mt-3 text-sm text-stone-400 tracking-widest uppercase">Laying out the streets…</div>
+  <div class="mt-6 w-56 meander opacity-60"></div>
+</div>
+
+<div id="places" class="hidden"></div>
+<!-- Time -->
+<div id="timeBar" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-10 glass rounded-2xl px-5 py-3 w-[min(460px,calc(100vw-2rem))] shadow-2xl">
+  <div class="flex items-center gap-2 mb-2 text-[11px]">
+    <select id="journey" class="sel" style="width:auto;flex:1"><option value="">Journey to…</option></select>
+    <label class="flex items-center gap-1 text-stone-300 cursor-pointer">Names <input id="tLabels" type="checkbox" checked class="w-3.5 h-3.5"></label>
+    <label class="flex items-center gap-1 text-stone-300 cursor-pointer">Orbit <input id="tRotate" type="checkbox" class="w-3.5 h-3.5"></label>
+  </div>
+  <div class="flex items-center justify-between text-[10px] uppercase tracking-[.2em] text-stone-400">
+    <span>Rosy-fingered Dawn</span><span id="timeName" class="text-bronze-300">Morning</span><span>Night</span>
+  </div>
+  <input id="time" type="range" min="0" max="1000" value="300" class="w-full mt-2">
+</div>
+
+<!-- Left: crisis & development -->
+<div id="leftPanel" class="fixed top-4 left-4 bottom-[76px] z-10 w-[350px] max-w-[calc(100vw-2rem)] flex flex-col gap-2 pointer-events-none">
+  <div class="glass rounded-2xl p-1.5 flex gap-1 pointer-events-auto shadow-2xl shrink-0">
+    <button class="mode on" data-mode="crisis">⚠ Crisis simulation</button>
+    <button class="mode" data-mode="dev">⚒ Development</button>
+  </div>
+  <div id="simPanel" class="glass rounded-2xl p-4 shadow-2xl pointer-events-auto overflow-y-auto scrolly min-h-0">
+  <div class="flex gap-1 mb-3">
+    <button class="tab" data-scn="fire"><b>🔥</b>Palace fire</button>
+    <button class="tab" data-scn="rain"><b>🌧</b>Great rains</button>
+    <button class="tab" data-scn="attack"><b>⚔</b>Raiders</button>
+    <button class="tab" data-scn="quake"><b>🌋</b>Earthquake</button>
+  </div>
+  <div class="flex items-start justify-between">
+    <div>
+      <div class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400">What could go wrong?</div>
+      <div id="simTitle" class="font-display text-lg text-bronze-300 leading-tight">Fire in the Palace</div>
+    </div>
+    <div class="text-right">
+      <div id="simClock" class="font-display text-2xl text-stone-100 tabular-nums leading-none">t+00m</div>
+      <div id="simPhase" class="text-[10px] uppercase tracking-wider text-stone-400 mt-1">Ready</div>
+    </div>
+  </div>
+  <div class="h-1 bg-black/40 rounded mt-2 overflow-hidden"><div id="simBar" class="h-full bg-gradient-to-r from-amber-400 to-red-600" style="width:0"></div></div>
+  <div class="grid grid-cols-2 gap-2 mt-3 text-xs">
+    <label class="flex flex-col gap-1 min-w-0"><span id="simO1L" class="text-stone-400">Palace</span><select id="simO1" class="sel"></select></label>
+    <label class="flex flex-col gap-1 min-w-0"><span id="simO2L" class="text-stone-400">Wind</span><select id="simO2" class="sel"></select></label>
+  </div>
+  <div class="flex gap-2 mt-3">
+    <button id="simIgnite" class="btn-fire flex-1">Set it ablaze</button>
+    <button id="simPause" class="btn">Pause</button>
+    <button id="simReset" class="btn">Reset</button>
+  </div>
+  <div class="flex items-center gap-1.5 mt-2 text-[11px]">
+    <span class="text-stone-400 mr-1">Speed</span>
+    <button class="spd on" data-speed="1">1×</button><button class="spd" data-speed="2">2×</button><button class="spd" data-speed="4">4×</button>
+    <label class="ml-auto flex items-center gap-1.5 text-stone-300 cursor-pointer"><input id="simFollow" type="checkbox" checked class="w-3.5 h-3.5"> Follow camera</label>
+  </div>
+  <div class="grid grid-cols-3 gap-1.5 mt-3 text-center">
+    <div class="kpi"><b id="k1">0</b><span id="l1"></span></div>
+    <div class="kpi"><b id="k2">0</b><span id="l2"></span></div>
+    <div class="kpi"><b id="k3">0</b><span id="l3"></span></div>
+    <div class="kpi"><b id="k4">0</b><span id="l4"></span></div>
+    <div class="kpi"><b id="k5">0</b><span id="l5"></span></div>
+    <div class="kpi"><b id="k6">0</b><span id="l6"></span></div>
+  </div>
+  </div>
+  <div id="devPanel" class="glass rounded-2xl p-4 shadow-2xl pointer-events-auto overflow-y-auto scrolly min-h-0 hidden">
+    <div class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400">Development planner</div>
+    <div class="font-display text-lg text-bronze-300 leading-tight">Grow Ithaca's infrastructure</div>
+    <div class="flex justify-between text-[11px] mt-2"><span class="text-stone-400">Royal treasury</span><span id="devTreasury" class="text-bronze-300 transition-colors"></span></div>
+    <div class="h-1 bg-black/40 rounded mt-1 overflow-hidden"><div id="devTBar" class="h-full bg-gradient-to-r from-amber-300 to-amber-600 transition-all" style="width:0"></div></div>
+  <div class="devrow"><span class="ic" style="color:#f43f5e">✚</span><div class="flex-1 min-w-0"><div class="text-sm text-stone-100">Hospitals <b id="dn_hospital" class="font-display text-bronze-300"></b> <span id="da_hospital" class="text-emerald-400 text-[11px]"></span></div><div class="text-[10px] text-stone-400 leading-snug">15 talents · +40 beds, care within reach</div></div><button id="dm_hospital" class="stp" title="Remove the last one you built">−</button><button id="dp_hospital" class="stp add" title="Build one on the best plot">+</button></div>
+  <div class="devrow"><span class="ic" style="color:#38bdf8">✎</span><div class="flex-1 min-w-0"><div class="text-sm text-stone-100">Schools <b id="dn_school" class="font-display text-bronze-300"></b> <span id="da_school" class="text-emerald-400 text-[11px]"></span></div><div class="text-[10px] text-stone-400 leading-snug">8 talents · +350 shelter places, learning nearby</div></div><button id="dm_school" class="stp" title="Remove the last one you built">−</button><button id="dp_school" class="stp add" title="Build one on the best plot">+</button></div>
+  <div class="devrow"><span class="ic" style="color:#e0a458">⛨</span><div class="flex-1 min-w-0"><div class="text-sm text-stone-100">Military bases <b id="dn_base" class="font-display text-bronze-300"></b> <span id="da_base" class="text-emerald-400 text-[11px]"></span></div><div class="text-[10px] text-stone-400 leading-snug">10 talents · +22 soldiers, fire & rescue crews</div></div><button id="dm_base" class="stp" title="Remove the last one you built">−</button><button id="dp_base" class="stp add" title="Build one on the best plot">+</button></div>
+
+    <div class="text-[10px] text-stone-500 mt-1.5">Each new building goes on the surveyed plot where it helps the most people.</div>
+    <div class="flex items-center gap-1 flex-wrap text-[11px] mt-3"><span class="text-stone-400 mr-1">Map</span>
+      <button class="spd on" data-view="normal">Normal</button><button class="spd" data-view="hospital">Hospital reach</button><button class="spd" data-view="school">School reach</button><button class="spd" data-view="resp">Response time</button></div>
+    <div class="text-[10px] text-stone-400 mt-1"><span style="color:#15a34a">■</span> help within reach &nbsp; <span style="color:#f59e0b">■</span> 3½–5 min (response) &nbsp; <span style="color:#dc2626">■</span> too far</div>
+    <div class="mt-3">
+      <div class="devm"><span>People within reach of a hospital</span><span id="mt_hosp"></span></div>
+      <div class="devm"><span>People within reach of a school</span><span id="mt_school"></span></div>
+      <div class="devm"><span>Care beds per 1,000 people</span><span id="mt_beds"></span></div>
+      <div class="devm"><span>Shelter places (share of people)</span><span id="mt_places"></span></div>
+      <div class="devm"><span>Reached by fire crews in 3½ min</span><span id="mt_resp"></span></div>
+      <div class="devm"><span>Soldiers to defend the city</span><span id="mt_def"></span></div>
+    </div>
+    <div class="flex items-end justify-between mt-3"><div><div class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400">Resilience score</div><div id="devScoreD" class="text-[11px]"></div></div><div id="devScore" class="font-display text-3xl text-bronze-300">0</div></div>
+    <div class="h-1.5 bg-black/40 rounded mt-1 overflow-hidden"><div id="devScoreBar" class="h-full bg-gradient-to-r from-red-500 via-amber-400 to-emerald-400 transition-all" style="width:0"></div></div>
+    <div class="flex gap-2 mt-3"><button id="devStress" class="btn-fire flex-1">Stress-test the plan</button><button id="devReset" class="btn">Clear plan</button></div>
+    <div class="text-[10px] text-stone-500 mt-1.5">Runs the four disasters on today's Ithaca and on your plan, then compares them.</div>
+    <div id="devStressOut"></div>
+  </div>
+</div>
+
+<!-- Bottom-left: save to history, then 3D city / graph view -->
+<div class="fixed bottom-4 left-4 z-10 w-[350px] max-w-[calc(100vw-2rem)] flex flex-col gap-2">
+  <button id="simSave" class="btn-fire w-full shadow-2xl hidden">Save to history</button>
+  <div class="glass rounded-2xl p-1.5 flex gap-1 shadow-2xl">
+    <button class="mode on" data-gview="3d">🏛 3D city</button><button class="mode" data-gview="graph">🕸 Graph view</button>
+  </div>
+</div>
+<!-- Graph view overlay -->
+<div id="graphView" class="fixed inset-0 z-[6] hidden" style="background:radial-gradient(ellipse at center,#1a140e 0%,#0b0906 75%)">
+  <div class="absolute flex flex-col glass rounded-2xl p-3" style="left:376px;right:356px;top:16px;bottom:16px;background:rgba(20,15,10,.55)">
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="font-display text-lg text-bronze-300 leading-tight">Ithaca's infrastructure network</div>
+      <div id="graphLive" class="text-[11px] text-stone-300 ml-auto"></div>
+      <div class="flex gap-1 text-[11px]"><button class="spd on" data-glayout="tiers">Tiers</button><button class="spd" data-glayout="map">Map</button></div>
+    </div>
+    <div class="relative flex-1 min-h-0 mt-2"><svg id="graphSvg" viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid meet" class="w-full h-full cursor-grab select-none" style="touch-action:none"></svg>
+      <div class="absolute flex items-center gap-1" style="top:2px;left:4px"><button id="gzIn" class="gz" title="Zoom in">+</button><button id="gzOut" class="gz" title="Zoom out">−</button><button id="gzFit" class="gz" title="Fit to view">⤢</button><span id="gzLevel" class="text-[10px] text-stone-500 ml-1">100%</span></div>
+      <div id="graphCard" class="hidden absolute top-1 right-1 w-[270px] glass rounded-xl p-3" style="background:rgba(20,15,10,.92)"></div></div>
+    <div id="graphLegend" class="glegend flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-stone-400 mt-1"></div>
+  </div>
+</div>
+<!-- Right: Athena, the Oracle, the cascade -->
+<div id="rightPanel" class="fixed top-4 right-4 bottom-4 z-10 w-[330px] flex-col gap-2 pointer-events-none hidden md:flex">
+  <div id="athena" class="glass rounded-2xl p-3 pointer-events-auto shadow-2xl shrink-0 max-h-[34vh] overflow-y-auto scrolly">
+    <div class="flex items-center gap-2"><span class="oicon" style="background:rgba(156,195,230,.15)">🦉</span><div><div class="font-display text-[12px] uppercase tracking-[.16em]" style="color:#9cc3e6">Athena's insight</div><div class="text-[10px] text-stone-500">Wisdom &amp; strategy · counsel you can act on</div></div></div>
+    <div id="athenaBody" class="text-[12px] leading-snug mt-2 text-stone-200"></div>
+    <div id="athenaActs" class="flex flex-col gap-1.5 mt-2"></div>
+  </div>
+  <div id="oracle" class="glass rounded-2xl p-3 pointer-events-auto shadow-2xl shrink-0 max-h-[32vh] overflow-y-auto scrolly">
+    <div class="flex items-center gap-2"><span class="oicon" style="background:rgba(196,165,255,.15)">🔮</span><div><div class="font-display text-[12px] uppercase tracking-[.16em]" style="color:#c4a5ff">Oracle's insight</div><div class="text-[10px] text-stone-500">The Pythia of Delphi sees what is to come</div></div></div>
+    <div id="oracleBody" class="text-[12px] leading-snug mt-2"></div>
+  </div>
+<div id="feedPanel" class="glass rounded-2xl p-3 shadow-2xl pointer-events-auto flex-1 min-h-0 flex flex-col">
+  <div id="sysTitle" class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400 px-1 pb-1">City systems</div>
+  <div id="sysList" class="max-h-[18vh] overflow-y-auto scrolly"></div>
+  <div class="meander my-2 opacity-40"></div>
+  <div id="feedTitle" class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400 px-1 pb-1">How the damage spreads · click to view</div>
+  <div id="feed" class="flex-1 overflow-y-auto scrolly min-h-0"></div>
+</div>
+</div>
+
+<!-- House info -->
+<div id="siteCard" class="fixed top-4 left-[380px] z-20 glass rounded-2xl p-4 w-[300px] shadow-2xl opacity-0 translate-y-3 pointer-events-none transition-all duration-300"></div>
+<div id="info" class="fixed top-4 left-[380px] z-20 glass rounded-2xl p-4 w-[290px] shadow-2xl opacity-0 translate-y-3 pointer-events-none transition-all duration-300">
+  <div class="flex items-start justify-between">
+    <div>
+      <div class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400">House <span id="iNum"></span> of <span id="iTot"></span></div>
+      <div id="iName" class="font-display text-lg text-bronze-300 leading-tight mt-1"></div>
+    </div>
+    <button id="iClose" class="text-stone-400 hover:text-white text-xl leading-none px-1">×</button>
+  </div>
+  <div class="meander my-2 opacity-40"></div>
+  <dl class="grid grid-cols-2 gap-y-1 text-sm">
+    <dt class="text-stone-400">Trade</dt><dd id="iJob" class="text-right"></dd>
+    <dt class="text-stone-400">Household</dt><dd id="iSize" class="text-right"></dd>
+    <dt class="text-stone-400">Storeys</dt><dd id="iStorey" class="text-right"></dd>
+    <dt class="text-stone-400">Roof</dt><dd id="iRoof" class="text-right"></dd>
+    <dt class="text-stone-400">Courtyard</dt><dd id="iYard" class="text-right"></dd>
+    <dt class="text-stone-400">Quarter</dt><dd id="iQ" class="text-right"></dd>
+    <dt class="text-stone-400">Today</dt><dd id="iStat" class="text-right text-bronze-300"></dd>
+  </dl>
+  <p id="iNote" class="text-xs italic text-stone-300 mt-2"></p>
+</div>
+
+<script>
+(() => {
+// ================= utilities =================
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const smooth=(e0,e1,x)=>{const t=clamp((x-e0)/(e1-e0),0,1);return t*t*(3-2*t);};
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+const rng=mulberry32(1184);
+const pick=a=>a[Math.floor(rng()*a.length)];
+function hash(x,y){const s=Math.sin(x*127.1+y*311.7)*43758.5453;return s-Math.floor(s);}
+function vnoise(x,y){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+  return lerp(lerp(hash(xi,yi),hash(xi+1,yi),u),lerp(hash(xi,yi+1),hash(xi+1,yi+1),u),v)*2-1;}
+function fbm(x,y){let s=0,a=.5,f=1;for(let i=0;i<4;i++){s+=a*vnoise(x*f,y*f);f*=2.03;a*=.5;}return s;}
+function segDist(px,pz,ax,az,bx,bz){const dx=bx-ax,dz=bz-az;const t=clamp(((px-ax)*dx+(pz-az)*dz)/(dx*dx+dz*dz),0,1);return Math.hypot(px-(ax+dx*t),pz-(az+dz*t));}
+const rotOff=(ox,oz,a)=>[ox*Math.cos(a)+oz*Math.sin(a),-ox*Math.sin(a)+oz*Math.cos(a)];
+const C=s=>new THREE.Color(s);
+const setMsg=m=>{const e=document.getElementById('loadMsg');if(e)e.textContent=m;};
+
+function build(){
+// ================= geography =================
+const BAY={ax:125,az:115,bx:420,bz:360};
+const NER={x:-210,z:-150}, SHILL={x:70,z:-215};
+function baseH(x,z){
+  const d=Math.hypot(x,z);
+  const n=fbm(x*.008+3,z*.008-7);
+  const r=Math.hypot(x*.95,z*1.05)+n*60;
+  const island=1-smooth(250,322,r);
+  const mask=.45+.55*smooth(80,220,d);
+  let h=4.5+fbm(x*.012,z*.012)*9*mask+fbm(x*.05+11,z*.05)*1.6;
+  h+=30*Math.exp(-(d*d)/(2*45*45));
+  h+=75*Math.exp(-((x-NER.x)**2+(z-NER.z)**2)/(2*60*60));
+  h+=42*Math.exp(-((x-SHILL.x)**2+(z-SHILL.z)**2)/(2*45*45));
+  h=h*island-12*(1-island);
+  const bd=segDist(x,z,BAY.ax,BAY.az,BAY.bx,BAY.bz);
+  h=lerp(h,-8,smooth(52,16,bd));
+  return h;
+}
+// sites
+const PALACES=[
+  {name:'Palace of Odysseus',x:0,z:0,k:1.55,grand:true,col:'#9b2d20',wallR:41,zone:47},
+  {name:'Palace of Laertes',x:-128,z:18,k:1.08,col:'#2f4170',wallR:27,zone:32},
+  {name:'Palace of Eupeithes',x:12,z:-130,k:1.05,col:'#23201d',wallR:27,zone:32},
+  {name:'Palace of Polybus',x:134,z:-38,k:1.05,col:'#8a5a1e',wallR:27,zone:32},
+  {name:'Palace of Mentor',x:-48,z:130,k:1.0,col:'#2d5a3a',wallR:26,zone:31},
+];
+const AGO={name:'The Agora',x:52,z:48};
+const SHRINES=[
+  {name:'Temple of Athena',x:-55,z:-52,col:'#2f4170'},
+  {name:'Temple of Poseidon',x:98,z:30,col:'#1f5a7a'},
+  {name:'Shrine of Apollo',x:78,z:-112,col:'#b8862e'},
+];
+const GRAN={name:'Royal Granaries',x:-84,z:-98};
+const EUM={name:'Steading of Eumaeus',x:-140,z:168};
+
+const FLATS=[];
+const SFG=new Map(),SFC=40;const sfk=(i,j)=>(i+60)*1000+(j+60);
+function sfAdd(f){const R=f.r+f.f;for(let i=Math.floor((f.x-R)/SFC);i<=Math.floor((f.x+R)/SFC);i++)for(let j=Math.floor((f.z-R)/SFC);j<=Math.floor((f.z+R)/SFC);j++){const k=sfk(i,j);if(!SFG.has(k))SFG.set(k,[]);SFG.get(k).push(f);}}
+const addFlat=(c,r,f,lift=.3)=>FLATS.push({x:c.x,z:c.z,r,f,t:Math.max(baseH(c.x,c.z),3)+lift});
+PALACES.forEach((p,i)=>addFlat(p,i?24:36,i?10:14,.5));
+addFlat(AGO,17,8); SHRINES.forEach(s=>addFlat(s,10,6,.6)); addFlat(GRAN,12,6); addFlat(EUM,9,5);
+function H(x,z){let h=baseH(x,z);for(const f of FLATS){const dd=Math.hypot(x-f.x,z-f.z);if(dd<f.r+f.f){h=lerp(h,f.t,1-smooth(f.r,f.r+f.f,dd));}}
+  const sf=SFG.get(sfk(Math.floor(x/SFC),Math.floor(z/SFC)));if(sf)for(const f of sf){const dd=Math.hypot(x-f.x,z-f.z);if(dd<f.r+f.f){h=lerp(h,f.t,1-smooth(f.r,f.r+f.f,dd));}}return h;}
+const top=c=>FLATS.find(f=>f.x===c.x&&f.z===c.z).t;
+
+let SHORE={x:BAY.ax,z:BAY.az};
+for(let t=0;t<1;t+=.005){const x=lerp(BAY.ax,AGO.x,t),z=lerp(BAY.az,AGO.z,t);if(H(x,z)>.7){SHORE={x,z};break;}}
+const bayDir=new THREE.Vector2(BAY.bx-BAY.ax,BAY.bz-BAY.az).normalize();
+const shoreT=new THREE.Vector2(-bayDir.y,bayDir.x);
+
+const ZONES=[...PALACES.map(p=>[p,p.zone]),[AGO,22],...SHRINES.map(s=>[s,15]),[GRAN,16],[EUM,13],[SHORE,26]];
+const inZone=(x,z,pad=0)=>ZONES.some(([c,r])=>Math.hypot(x-c.x,z-c.z)<r+pad);
+const WALL_R=256, CITY_R=247;
+
+// ================= street network =================
+const RES=1, RMIN=-420, RN=840; const roadGrid=new Uint8Array(RN*RN);
+const rIdx=(x,z)=>{const i=Math.floor((x-RMIN)/RES),j=Math.floor((z-RMIN)/RES);return(i<0||j<0||i>=RN||j>=RN)?-1:j*RN+i;};
+const onRoad=(x,z)=>{const k=rIdx(x,z);return k>=0&&roadGrid[k]>0;};
+function stamp(x,z,r){for(let i=-Math.ceil(r);i<=Math.ceil(r);i++)for(let j=-Math.ceil(r);j<=Math.ceil(r);j++){if(i*i+j*j>r*r)continue;const k=rIdx(x+i,z+j);if(k>=0)roadGrid[k]=1;}}
+const streets=[];
+function addRun(pts,half,kind){
+  if(pts.length<3)return;
+  const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
+  streets.push({pts,L,half,kind});
+  for(let i=1;i<pts.length;i++){const[a,b]=[pts[i-1],pts[i]];const n=Math.ceil(L[i]-L[i-1]);for(let s=0;s<=n;s++)stamp(lerp(a[0],b[0],s/n),lerp(a[1],b[1],s/n),half-.3);}
+}
+function validRoadPt(x,z,half){const h=H(x,z);return h>.9&&h<60&&!inZone(x,z,half+1);}
+// ring streets
+for(let R=58,ri=0;R<=CITY_R;R+=16.6,ri++){
+  const n=Math.ceil(2*Math.PI*R/3);let run=[];
+  for(let i=0;i<=n;i++){const th=i/n*Math.PI*2;const r=R+fbm(Math.cos(th)*2+R,Math.sin(th)*2)*5;const x=Math.sin(th)*r,z=Math.cos(th)*r;
+    if(validRoadPt(x,z,2.2))run.push([x,z]);else{addRun(run,2.2,'ring');run=[];}}
+  addRun(run,2.2,'ring');
+}
+// radial avenues
+const RADIALS=[];
+for(let k=0;k<26;k++){
+  const th0=k/26*Math.PI*2+.09, main=k%2===0; RADIALS.push(th0);
+  let run=[];const rEnd=main?300:CITY_R+4;
+  for(let r=44;r<=rEnd;r+=3){const th=th0+fbm(r*.015,k*3.1)*.07;const x=Math.sin(th)*r,z=Math.cos(th)*r;
+    if(validRoadPt(x,z,main?2.9:2.4))run.push([x,z]);else{addRun(run,main?2.9:2.4,main?'avenue':'street');run=[];}}
+  addRun(run,main?2.9:2.4,main?'avenue':'street');
+}
+// secondary lanes between the avenues in the outer districts
+for(let k=0;k<0;k++){ // (reserved: extra lanes)
+  const th0=(k+.5)/44*Math.PI*2+.09;const start=k%2?150:100;let run=[];
+  for(let r=start;r<=CITY_R+2;r+=3){const th=th0+fbm(r*.02,k*1.7)*.05;const x=Math.sin(th)*r,z=Math.cos(th)*r;
+    if(validRoadPt(x,z,2))run.push([x,z]);else{if(run.length>4)addRun(run,2,'lane');run=[];}}
+  if(run.length>4)addRun(run,2,'lane');
+}
+// processional way from the acropolis gate to the agora and harbor
+{const a=Math.atan2(AGO.x,AGO.z);const pts=[];for(let r=PALACES[0].wallR+1;r<Math.hypot(AGO.x,AGO.z)-17;r+=2)pts.push([Math.sin(a)*r,Math.cos(a)*r]);addRun(pts,3.4,'avenue');
+ const p2=[];const L=Math.hypot(SHORE.x-AGO.x,SHORE.z-AGO.z);for(let s=19;s<L-6;s+=2)p2.push([lerp(AGO.x,SHORE.x,s/L),lerp(AGO.z,SHORE.z,s/L)]);addRun(p2,3.2,'avenue');}
+
+// ================= civic sites: hospitals · schools · garrisons (+ surveyed plots) =================
+setMsg('Founding schools, healers and garrisons…');
+const srng=mulberry32(5150);
+const SITE_NAMES={
+  hospital:['Asclepius General Hospital','Acropolis Healing House','Paean Children\'s Asclepion','Hygieia Medical Hall','Agora Infirmary','Apollo Healing House','Chiron Surgical Hall','Panacea Clinic','Harbor Mercy Asclepion','Machaon Field Hospital','Podalirius House of Healing','Epione Recovery Ward','Athena Trauma Hall','Sanctuary Infirmary','Iaso Women\'s Asclepion'],
+  school:['Lyceum Academy','Telemachus Preparatory','Agora Civic School','Mentor Hall Academy','Penelope Weavers\' School','Phorcys Maritime School','Calypso Grammar School','Eumaeus Field School','Athena Scholars\' Gymnasium','Nestor Lyceum'],
+  base:['Phorcys Naval Outpost','Poseidon Harbor Watch','Trireme Dockyard Guard','Scylla Point Battery','Charybdis Strait Outpost','Argonaut Marine Barracks',
+    'Ares Garrison North','Athena Signal Corps','Nike Watchtower','Cyclops Ridge Battery','Zeus Command Post','Perseus Rapid Response','Bronze Gate Garrison',
+    'Patroclus Fire Brigade','Hermes Courier Depot','Diomedes Engineering Corps','Hoplite Barracks','Theseus Logistics Depot','Agora Watch Post','Ajax Coastal Fort',
+    'Aeolus Wind Station','Ares Garrison South','Heracles Heavy Brigade','Artemis Ranger Station','Hephaestus Engineering Corps','Myrmidon Camp','Orion Scout Post',
+    'Achilles Barracks','Menelaus Perimeter Post','Eurylochus Patrol Base'],
+};
+const SITES=[],PLOTS=[];
+const SFW=6,SFD=4;
+function siteFoot(x,z,a){
+  const hc=H(x,z);if(hc<2||hc>48)return false;
+  for(let i=-1;i<=1;i+=.5)for(let j=-1;j<=1;j+=.5){const[ox,oz]=rotOff(i*(SFW+1),j*(SFD+1),a);const X=x+ox,Z=z+oz;
+    if(onRoad(X,Z))return false;if(Math.abs(H(X,Z)-hc)>2.6)return false;}
+  return hc;
+}
+function regFoot(o){ZONES.push([{x:o.x,z:o.z},9.5]);const t=Math.max(o.y0,2)+.3;sfAdd({x:o.x,z:o.z,r:7.5,f:3.5,t});o.y=t;return o;}
+function placeSite(kind,name,minSame,pred){
+  for(let relax=1;relax>.35;relax*=.85){
+    for(let k=0;k<2500;k++){const th=srng()*Math.PI*2,r=68+srng()*(CITY_R-84);const x=Math.sin(th)*r,z=Math.cos(th)*r;
+      if(pred&&!pred(x,z))continue;if(inZone(x,z,10))continue;
+      if(SITES.some(s=>Math.hypot(s.x-x,s.z-z)<(s.kind===kind?minSame*relax:16))||PLOTS.some(s=>Math.hypot(s.x-x,s.z-z)<16))continue;
+      const hc=siteFoot(x,z,th);if(hc===false)continue;
+      const s=regFoot({kind,name,x,z,a:th,y0:hc,idx:SITES.length});SITES.push(s);return s;}}
+  return null;
+}
+SITE_NAMES.hospital.forEach(n=>placeSite('hospital',n,44));
+SITE_NAMES.school.forEach(n=>placeSite('school',n,40));
+SITE_NAMES.base.forEach((n,i)=>placeSite('base',n,26,i<6?(x,z)=>Math.hypot(x-SHORE.x,z-SHORE.z)<125:null));
+// surveyed plots for future development, in the gaps between existing services
+for(let p=0;p<24;p++){
+  let best=null,bd=-1;
+  for(let k=0;k<1400;k++){const th=srng()*Math.PI*2,r=68+srng()*(CITY_R-84);const x=Math.sin(th)*r,z=Math.cos(th)*r;
+    if(inZone(x,z,10))continue;
+    let md=1e9;for(const s of SITES)md=Math.min(md,Math.hypot(s.x-x,s.z-z));for(const s of PLOTS)md=Math.min(md,Math.hypot(s.x-x,s.z-z)*.8);
+    if(md<18||md<=bd)continue;const hc=siteFoot(x,z,th);if(hc===false)continue;bd=md;best={x,z,a:th,y0:hc};}
+  if(best)PLOTS.push(regFoot(Object.assign(best,{idx:PLOTS.length,used:null})));
+}
+
+// ================= houses along streets =================
+setMsg('Building thousands of houses…');
+const houses=[]; const MAXH=6000; const HG=new Map(),HC=14;
+const hk=(x,z)=>Math.floor(x/HC)+','+Math.floor(z/HC);
+function nearH(x,z){const out=[];const cx=Math.floor(x/HC),cz=Math.floor(z/HC);for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++){const a=HG.get((cx+i)+','+(cz+j));if(a)for(const o of a)out.push(o);}return out;}
+function obb(A,B,pad){
+  const ax=[[Math.cos(A.a),-Math.sin(A.a)],[Math.sin(A.a),Math.cos(A.a)],[Math.cos(B.a),-Math.sin(B.a)],[Math.sin(B.a),Math.cos(B.a)]];
+  const dx=B.cx-A.cx,dz=B.cz-A.cz;
+  for(const[u,v] of ax){
+    const ra=A.hx*Math.abs(u*Math.cos(A.a)-v*Math.sin(A.a))+A.hz*Math.abs(u*Math.sin(A.a)+v*Math.cos(A.a));
+    const rb=B.hx*Math.abs(u*Math.cos(B.a)-v*Math.sin(B.a))+B.hz*Math.abs(u*Math.sin(B.a)+v*Math.cos(B.a));
+    if(Math.abs(dx*u+dz*v)>ra+rb+pad)return false;}
+  return true;
+}
+function pointInLots(x,z,pad){for(const o of nearH(x,z)){const lx=(x-o.cx)*Math.cos(o.a)-(z-o.cz)*Math.sin(o.a),lz=(x-o.cx)*Math.sin(o.a)+(z-o.cz)*Math.cos(o.a);if(Math.abs(lx)<o.hx+pad&&Math.abs(lz)<o.hz+pad)return true;}return false;}
+function at(st,u){let i=1;while(i<st.L.length-1&&st.L[i]<u)i++;const a=st.pts[i-1],b=st.pts[i];const t=clamp((u-st.L[i-1])/(st.L[i]-st.L[i-1]||1),0,1);
+  const tx=b[0]-a[0],tz=b[1]-a[1],tl=Math.hypot(tx,tz)||1;return{x:lerp(a[0],b[0],t),z:lerp(a[1],b[1],t),tx:tx/tl,tz:tz/tl};}
+function tryHouse(place,dist0,st){
+  const w=2.7+rng()*1.4, d=2.8+rng()*.9;
+  const hasAnnex=rng()<.38, aw=hasAnnex?1.8+rng()*1.2:0, ad=hasAnnex?d*(.55+rng()*.25):0;
+  const hasYard=rng()<.66, yd=hasYard?1.9+rng()*1.0:0;
+  const lotW=w+aw, depth=d+yd;
+  const pl=place(lotW);if(!pl)return null;const O=pl.O,a=pl.a,dist=Math.hypot(O.x,O.z);
+  const [ox,oz]=rotOff(0,-depth/2,a);
+  const lot={cx:O.x+ox,cz:O.z+oz,hx:lotW/2,hz:depth/2,a};
+  if(Math.hypot(lot.cx,lot.cz)>CITY_R-6)return null;
+  if(inZone(lot.cx,lot.cz,Math.max(lot.hx,lot.hz)*.8))return null;
+  const S=[[-lotW/2,-1],[lotW/2,-1],[-lotW/2,-depth],[lotW/2,-depth],[0,-depth/2],[-lotW/2,-depth/2],[lotW/2,-depth/2],[0,-1]];
+  let hmin=1e9,hmax=-1e9;
+  for(const[lx,lz] of S){const[qx,qz]=rotOff(lx,lz,a);const X=O.x+qx,Z=O.z+qz;const h=H(X,Z);if(h<hmin)hmin=h;if(h>hmax)hmax=h;if(onRoad(X,Z))return null;}
+  if(hmin<.9||hmax-hmin>2.6||hmax>62)return null;
+  for(const o of nearH(lot.cx,lot.cz))if(obb(lot,o,.35))return null;
+  const centerFactor=1-clamp(dist/CITY_R,0,1);
+  const two=rng()<.12+.5*centerFactor;
+  const roofType=rng()<.62?'hip':'flat';
+  return{...lot,ox:O.x,oz:O.z,w,d,aw,ad,yd,hasAnnex,hasYard,lotW,hmin,hmax,two,roofType,
+    hgt:two?4.3+rng()*.9:2.4+rng()*.6,dist,kiln:hasYard&&rng()<.05,fig:hasYard&&rng()<.16};
+}
+for(const st of streets){
+  const Ltot=st.L[st.L.length-1];
+  for(const side of[-1,1]){
+    let u=rng()*2;
+    while(u<Ltot-3&&houses.length<MAXH){
+      const h=tryHouse(lw=>{if(u+lw>Ltot)return null;const p=at(st,u+lw/2);const nx=side*-p.tz,nz=side*p.tx;
+        return{O:{x:p.x+nx*(st.half+.4),z:p.z+nz*(st.half+.4)},a:Math.atan2(-nx,-nz)};},0,st);
+      if(h){houses.push(h);const k=hk(h.cx,h.cz);if(!HG.has(k))HG.set(k,[]);HG.get(k).push(h);u+=h.lotW+.2+rng()*.9;}
+      else u+=1.1;
+    }
+  }
+}
+// back-lanes infill: cottages facing the nearest street inside large blocks
+let fillTries=0;
+while(houses.length<MAXH&&fillTries<160000){fillTries++;
+  const th=rng()*Math.PI*2,r=50+rng()*(CITY_R-55);const x=Math.sin(th)*r,z=Math.cos(th)*r;
+  if(onRoad(x,z)||pointInLots(x,z,1))continue;
+  const a=th+Math.PI+(rng()<.5?0:Math.PI/2)*(rng()<.5?1:-1);
+  const h=tryHouse(()=>({O:{x,z},a}),r,null);
+  if(h){houses.push(h);const k=hk(h.cx,h.cz);if(!HG.has(k))HG.set(k,[]);HG.get(k).push(h);}
+}
+houses.forEach(h=>h.q=Math.atan2(h.ox,h.oz));const N=houses.length;
+
+// ================= renderer / scene =================
+const host=document.getElementById('scene');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.1;
+host.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+scene.fog=new THREE.Fog(0xcfd8e0,450,1700);
+const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.5,4500);
+camera.position.set(390,290,430);
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.target.set(10,8,20); controls.enableDamping=true; controls.dampingFactor=.07;
+controls.maxPolarAngle=1.48; controls.minDistance=8; controls.maxDistance=900; controls.autoRotateSpeed=.3;
+
+const skyU={top:{value:C(0)},horizon:{value:C(0)},bottom:{value:C('#0e2a40')},sunDir:{value:new THREE.Vector3()},sunCol:{value:C(0)}};
+const sky=new THREE.Mesh(new THREE.SphereGeometry(2000,32,16),new THREE.ShaderMaterial({uniforms:skyU,side:THREE.BackSide,depthWrite:false,fog:false,
+  vertexShader:`varying vec3 vP;void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`uniform vec3 top,horizon,bottom,sunDir,sunCol;varying vec3 vP;void main(){vec3 d=normalize(vP);float h=d.y;
+  vec3 c=h>0.?mix(horizon,top,pow(h,.55)):mix(horizon,bottom,pow(-h,.4));
+  float s=max(dot(d,normalize(sunDir)),0.);c+=sunCol*(pow(s,600.)*3.+pow(s,12.)*.35);gl_FragColor=vec4(c,1.);}`}));
+scene.add(sky);
+const starG=new THREE.BufferGeometry();{const p=[];for(let i=0;i<1800;i++){const u=rng()*2*Math.PI,v=rng()*.9+.05,r=1900;p.push(Math.cos(u)*Math.sqrt(1-v*v)*r,v*r,Math.sin(u)*Math.sqrt(1-v*v)*r);}starG.setAttribute('position',new THREE.Float32BufferAttribute(p,3));}
+const stars=new THREE.Points(starG,new THREE.PointsMaterial({color:0xffffff,size:2,sizeAttenuation:false,transparent:true,fog:false,depthWrite:false}));scene.add(stars);
+
+const hemi=new THREE.HemisphereLight(0xbfd8ff,0x6b5a3a,.5);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xffffff,1.2);
+sun.castShadow=true;sun.shadow.mapSize.set(4096,4096);
+Object.assign(sun.shadow.camera,{left:-320,right:320,top:320,bottom:-320,near:1,far:1400});sun.shadow.bias=-.0005;sun.shadow.normalBias=.6;
+scene.add(sun);scene.add(sun.target);
+
+// ================= terrain =================
+setMsg('Shaping the island…');
+const SIZE=900,SEG=300;
+const tg=new THREE.PlaneGeometry(SIZE,SIZE,SEG,SEG);tg.rotateX(-Math.PI/2);
+{
+  const pos=tg.attributes.position,n=pos.count,hs=new Float32Array(n);
+  for(let i=0;i<n;i++){hs[i]=H(pos.getX(i),pos.getZ(i));pos.setY(i,hs[i]);}
+  const cols=new Float32Array(n*3),c=C(0),W=SEG+1;
+  const sand=C('#d9c48e'),wet=C('#a8955f'),deep=C('#5f7462'),scrub=C('#76844a'),dry=C('#a99b5c'),rock=C('#8d867a'),earth=C('#a58a62'),field=C('#cdae52'),stubble=C('#b8a067'),vine=C('#5f7a3a');
+  for(let i=0;i<n;i++){
+    const x=pos.getX(i),z=pos.getZ(i),h=hs[i],col=i%W,row=Math.floor(i/W);
+    const hx=hs[row*W+Math.min(col+1,W-1)],hz=hs[Math.min(row+1,W-1)*W+col];const sl=(Math.abs(hx-h)+Math.abs(hz-h))/3;
+    const nn=fbm(x*.04,z*.04),d=Math.hypot(x,z);
+    if(h<0)c.copy(wet).lerp(deep,clamp(-h/10,0,1));
+    else if(h<1.1)c.copy(sand);
+    else{
+      c.copy(scrub).lerp(dry,clamp(nn*.9+.5,0,1));
+      if(d<WALL_R)c.lerp(earth,.65*(1-smooth(WALL_R-25,WALL_R,d)));
+      else if(h<22&&h>2){const f=fbm(x*.022+40,z*.022);if(f>.15)c.lerp(hash(Math.floor(x/30),Math.floor(z/30))>.5?field:stubble,.85);else if(f<-.25)c.lerp(vine,.6);}
+      if(sl>1.5||h>58)c.lerp(rock,clamp((sl-1.1)*.8+(h>58?.5:0),0,1));
+    }
+    c.offsetHSL(0,0,(hash(x*3.1,z*1.7)-.5)*.04);
+    cols[i*3]=c.r;cols[i*3+1]=c.g;cols[i*3+2]=c.b;
+  }
+  tg.setAttribute('color',new THREE.BufferAttribute(cols,3));tg.computeVertexNormals();
+}
+const terrain=new THREE.Mesh(tg,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));terrain.receiveShadow=true;scene.add(terrain);
+const wg=new THREE.PlaneGeometry(4200,4200,180,180);wg.rotateX(-Math.PI/2);
+const wBase=Float32Array.from(wg.attributes.position.array);
+const waterMat=new THREE.MeshPhongMaterial({color:0x1d6a8c,specular:0x99ccee,shininess:90,transparent:true,opacity:.86});
+const water=new THREE.Mesh(wg,waterMat);water.position.y=.05;water.receiveShadow=true;scene.add(water);
+
+// ================= shared geometry =================
+const box=new THREE.BoxGeometry(1,1,1);box.translate(0,.5,0);
+const hip=new THREE.ConeGeometry(Math.SQRT1_2,1,4,1);hip.rotateY(Math.PI/4);hip.translate(0,.5,0);
+const gable=(()=>{const s=new THREE.Shape();s.moveTo(-.5,0);s.lineTo(.5,0);s.lineTo(0,1);s.lineTo(-.5,0);const g=new THREE.ExtrudeGeometry(s,{depth:1,bevelEnabled:false});g.translate(0,0,-.5);g.computeVertexNormals();return g;})();
+const D=new THREE.Object3D();
+const std=(c,r=.9)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
+const matCache={};const M=c=>matCache[c]||(matCache[c]=std(c));
+function add(mesh,x,y,z,parent=scene){mesh.position.set(x,y,z);mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;}
+function inst(geo,mat,n,shadow=true){const m=new THREE.InstancedMesh(geo,mat,Math.max(n,1));m.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(Math.max(n,1)*3).fill(1),3);m.count=0;m.castShadow=shadow;m.receiveShadow=true;scene.add(m);return m;}
+function put(m,x,y,z,ry,sx,sy,sz,col){D.position.set(x,y,z);D.rotation.set(0,ry,0);D.scale.set(sx,sy,sz);D.updateMatrix();m.setMatrixAt(m.count,D.matrix);if(col)m.setColorAt(m.count,col);m.count++;}
+let otherBuildings=0;
+
+// ================= houses → meshes =================
+setMsg('Plastering walls & laying roof tiles…');
+const wallCols=['#ece3cc','#e3d6b8','#d6bf95','#c4a173','#dfcfab','#cfae80','#e9dbbf','#d9c9b0'].map(C);
+const socleCols=['#8f8574','#9a8d78','#857a69','#a39580'].map(C);
+const tileCols=['#a8532f','#b5603b','#96472a','#8c5437','#b8693f','#9e4f33'].map(C);
+const mudCols=['#8f7558','#7d644a','#94805f'].map(C);
+const wallMat=std(0xffffff,.95),roofMat=std(0xffffff,.85),yardMat=std(0xffffff,1);
+const winMat=new THREE.MeshBasicMaterial({color:0x2e2218});winMat.toneMapped=false;
+const mainM=inst(box,wallMat,N),socleM=inst(box,yardMat,N),hipM=inst(hip,roofMat,N),eaveM=inst(box,roofMat,N),flatM=inst(box,roofMat,N),
+      annexM=inst(box,wallMat,N),annexRoofM=inst(box,roofMat,N),yardM=inst(box,yardMat,N*3),doorM=inst(box,std(0x3a2616,1),N,false),
+      winM=inst(box,winMat,N*4,false),jarM=inst(new THREE.CylinderGeometry(.34,.24,.95,8).translate(0,.47,0),std(0xa0583a,.8),N*2),
+      kilnM=inst(new THREE.SphereGeometry(1,10,6,0,Math.PI*2,0,Math.PI/2),std(0x8c6a4c,1),N),beamM=inst(box,std(0x4a3320,1),N*2,false);
+const figTrees=[];
+houses.forEach((h,i)=>{
+  const a=h.a,col=pick(wallCols).clone().offsetHSL(0,(rng()-.5)*.03,(rng()-.5)*.05);h.col=col;
+  const W=(lx,lz)=>{const[qx,qz]=rotOff(lx,lz,a);return[h.ox+qx,h.oz+qz];};
+  const y0=h.hmin-.6, topY=h.hmax+h.hgt;
+  // main block
+  const[mx,mz]=W(-h.aw/2,-h.d/2);
+  put(mainM,mx,y0,mz,a,h.w,topY-y0,h.d,col);
+  put(socleM,mx,y0,mz,a,h.w+.16,(h.hmax+.65)-y0,h.d+.16,pick(socleCols));
+  // roof
+  const rc=h.roofType==='hip'?pick(tileCols).clone().offsetHSL(0,0,(rng()-.5)*.05):pick(mudCols);
+  if(h.roofType==='hip'){put(eaveM,mx,topY,mz,a,h.w+.55,.16,h.d+.55,rc);put(hipM,mx,topY+.16,mz,a,h.w+.5,.8+rng()*.5,h.d+.5,rc);put(flatM,mx,0,mz,a,0,0,0,rc);}
+  else{put(flatM,mx,topY,mz,a,h.w+.22,.32,h.d+.22,rc);put(eaveM,mx,0,mz,a,0,0,0,rc);put(hipM,mx,0,mz,a,0,0,0,rc);
+    // protruding roof-beam ends, typical of flat-roofed houses
+    for(let s=-1;s<=1;s+=2){const[bx,bz]=W(-h.aw/2+s*h.w*.3,.05);put(beamM,bx,topY-.35,bz,a,.16,.16,.35);}}
+  // annex (storeroom / stable)
+  if(h.hasAnnex){const[ax,az]=W(h.w/2,-h.ad/2);const ah=h.hmax+h.hgt*(h.two?.45:.68);
+    put(annexM,ax,y0,az,a,h.aw,ah-y0,h.ad,col.clone().offsetHSL(0,0,-.04));put(annexRoofM,ax,ah,az,a,h.aw+.2,.24,h.ad+.2,pick(mudCols));}
+  else{put(annexM,0,-50,0,0,0,0,0);put(annexRoofM,0,-50,0,0,0,0,0);}
+  // courtyard walls behind
+  if(h.hasYard){const yc=pick(socleCols).clone().lerp(col,.35);
+    const[bx,bz]=W(0,-h.d-h.yd+.15);put(yardM,bx,H(bx,bz)-.5,bz,a,h.lotW,1.9,.3,yc);
+    for(const s of[-1,1]){const[sx,sz]=W(s*(h.lotW/2-.15),-h.d-h.yd/2);put(yardM,sx,H(sx,sz)-.5,sz,a,.3,1.9,h.yd,yc);}
+    const[cx,cz]=W((rng()-.5)*h.lotW*.5,-h.d-h.yd/2);
+    if(h.kiln){put(kilnM,cx,H(cx,cz)-.1,cz,0,1.1,1.2,1.1);}
+    else{const nj=1+Math.floor(rng()*2);for(let j=0;j<nj;j++){const[jx,jz]=W(-h.lotW/2+.6+j*.8,-h.d-h.yd+.65);put(jarM,jx,H(jx,jz)-.1,jz,0,1,1,1);}}
+    if(h.fig){const[fx,fz]=W(h.lotW*.25,-h.d-h.yd/2);figTrees.push([fx,fz]);}
+  }
+  // door + windows on street face
+  const doorX=-h.aw/2+(rng()-.5)*h.w*.4;const[dx,dz]=W(doorX,.04);
+  put(doorM,dx,Math.max(H(dx,dz),h.hmin)-.05,dz,a,.82,1.55,.1);
+  const wl=[[-h.aw/2-h.w*.3,h.hmax+1.15],[-h.aw/2+h.w*.3,h.hmax+1.15]];
+  if(h.two)wl.push([-h.aw/2-h.w*.25,h.hmax+3.3],[-h.aw/2+h.w*.25,h.hmax+3.3]);
+  wl.forEach(([lx,y])=>{if(Math.abs(lx-doorX)<.7&&y<h.hmax+2)return;const[wx,wz]=W(lx,.05);put(winM,wx,y,wz,a,.42,.5,.08);});
+});
+[mainM,socleM,hipM,eaveM,flatM,annexM,annexRoofM,yardM,doorM,winM,jarM,kilnM,beamM].forEach(m=>{m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;});
+otherBuildings+=kilnM.count;
+
+// ================= paving =================
+{
+  const pts=[];
+  streets.forEach(st=>{const L=st.L[st.L.length-1];for(let u=0;u<L;u+=1.7){const p=at(st,u);const h=H(p.x,p.z);if(h>.5)pts.push([p.x,h,p.z,Math.atan2(p.tx,p.tz),st.half]);}});
+  const m=inst(box,std(0xffffff,1),pts.length,false);
+  const pc=['#b9a98c','#ad9d80','#c2b394','#a8977a'].map(C);
+  pts.forEach(([x,h,z,a,hf])=>put(m,x,h-.3,z,a+(rng()-.5)*.05,hf*2,.4,1.75,pick(pc)));
+}
+
+// ================= palaces =================
+setMsg('Raising five palaces…');
+const fireLights=[];
+function ringWall(c,R,gateAng,height,thick,towerEvery,colr){
+  const segs=[];const step=3.1/R;let i=0;
+  for(let t=0;t<Math.PI*2;t+=step,i++){const df=Math.abs(((t-gateAng+Math.PI*3)%(Math.PI*2))-Math.PI);if(df<5/R)continue;
+    const x=c.x+Math.sin(t)*R,z=c.z+Math.cos(t)*R;const h=H(x,z);if(h<.3)continue;segs.push([x,h,z,t,i%towerEvery===0]);}
+  const m=inst(box,std(colr,1),segs.length+2);
+  segs.forEach(([x,h,z,t,tw])=>{if(tw){put(m,x,h-1.5,z,t,thick*1.9,height+3.5,thick*1.9);}else put(m,x,h-1.5,z,t+Math.PI/2,3.4,height+1.5+rng()*.4,thick);});
+  [-1,1].forEach(s=>{const t=gateAng+s*5.5/R,x=c.x+Math.sin(t)*R,z=c.z+Math.cos(t)*R;put(m,x,H(x,z)-1.5,z,t,thick*2.1,height+4.5,thick*2.1);});
+  m.instanceMatrix.needsUpdate=true;return segs.filter(s=>s[4]).length+2;
+}
+function buildPalace(p){
+  const t=top(p);const face=Math.atan2(-p.x,-p.z);const ang=p.grand?Math.atan2(AGO.x,AGO.z):(Number.isFinite(face)?face:0);
+  const g=new THREE.Group();g.position.set(p.x,t,p.z);g.rotation.y=ang;g.scale.setScalar(p.k);scene.add(g);p.group=g;
+  const stone=M('#c9b99a'),plaster=M('#ece1c8'),plaster2=M('#e2d3b2'),colm=std(p.col,.7),dark=M('#2a2522'),roofC=M('#6e3a26'),tile=M('#a4502f'),wood=M('#6b4a2e'),fresco=std(p.col,.8);
+  const B=(w,h,d,x,y,z,m,parent=g)=>{const o=new THREE.Mesh(box,m);o.scale.set(w,h,d);return add(o,x,y,z,parent);};
+  const col=(x,z,h=5.6,r=.52)=>{add(new THREE.Mesh(new THREE.CylinderGeometry(r,r*.72,h,14),colm),x,h/2+.2,z,g);B(r*2.6,.5,r*2.6,x,h+.2,z,dark);};
+  B(34,2.6,31,0,-2.4,0,stone);B(35,.35,32,0,.15,0,M('#d8ccb0'));
+  // megaron
+  B(11.5,6.8,17,0,.2,-3,plaster);B(11.7,.55,17.2,0,5.4,-3,fresco);
+  B(12.6,.6,21,0,7,-1.2,roofC);B(2.6,1.6,2.6,0,7.6,-4.5,M('#7a6a5a'));
+  [-2.8,2.8].forEach(x=>col(x,6.8,6.8));B(1.3,6.8,4,-4.9,.2,6.6,plaster);B(1.3,6.8,4,4.9,.2,6.6,plaster);
+  // hearth glow visible through porch
+  // wings
+  [-1,1].forEach(s=>{B(7,4.8,21,s*10.8,.2,-3,plaster2);B(7.7,.45,21.7,s*10.8,5,-3,roofC);
+    for(let z=-12;z<=6;z+=3)B(.08,.7,.5,s*14.32,2.6,z,dark);});
+  if(p.grand){[-1,1].forEach(s=>{B(6.2,3.4,12,s*10.8,5.45,-6,plaster);const r=new THREE.Mesh(hip,tile);r.scale.set(7,1.6,12.8);add(r,s*10.8,8.85,-6,g);
+    for(let z=-10;z<=-2;z+=2.6)B(.08,.6,.5,s*13.92,6.8,z,dark);});
+    [[-15,-12.5],[15,-12.5],[-15,13],[15,13]].forEach(([x,z])=>{B(4,10,4,x,-1,z,stone);B(4.6,.6,4.6,x,9,z,dark);});}
+  B(6.5,4,6.5,0,.2,-15,plaster2);B(7,.4,7,0,4.2,-15,roofC);
+  // court, altar, colonnades, propylon
+  B(20,.12,9,0,.22,11.6,M('#ddd1b6'));
+  B(2.2,1.2,1.5,0,.2,11.6,stone);
+  const fire=new THREE.Mesh(new THREE.ConeGeometry(.55,1.3,8),new THREE.MeshBasicMaterial({color:0xffa340}));fire.position.set(0,2.05,11.6);g.add(fire);
+  if(p.grand){const pl=new THREE.PointLight(0xff8a3d,2,60,2);pl.position.set(0,3,11.6);g.add(pl);fireLights.push([pl,fire]);}else fireLights.push([null,fire]);
+  for(let z=7.6;z<=15.2;z+=2.5)[-9.2,9.2].forEach(x=>col(x,z,3.6,.32));
+  [-1,1].forEach(s=>B(2.2,.4,9.6,s*9.2,4.1,11.4,wood));
+  B(1.8,5,2.2,-3.2,.2,16.6,stone);B(1.8,5,2.2,3.2,.2,16.6,stone);B(8.6,1,2.6,0,5.2,16.6,stone);B(8.6,.35,2.6,0,6.2,16.6,fresco);
+  // storeroom pithoi along the rear terrace
+  for(let x=-14;x<=14;x+=1.4){const j=new THREE.Mesh(new THREE.CylinderGeometry(.42,.28,1.1,8),M('#a0583a'));add(j,x,.75,-14.6+(Math.abs(x)<4?-3.4:0)+ (Math.abs(x)<4?0:0),g);}
+  ringWall(p,p.wallR,ang,p.grand?7:4.2,p.grand?2.8:2,p.grand?7:9,p.grand?'#a3977f':'#b1a48c');
+}
+PALACES.forEach(buildPalace);
+
+// ================= agora & market =================
+{
+  const t=top(AGO);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(17,17.5,.5,48),M('#cbbd9e')),AGO.x,t-.15,AGO.z);
+  const seats=inst(box,M('#b3a588'),60);
+  for(let ring=0;ring<2;ring++)for(let i=0;i<30;i++){const th=i/30*Math.PI*2;if(Math.cos(th-Math.atan2(-AGO.x,-AGO.z))>.92)continue;const r=7.5+ring*1.4;put(seats,AGO.x+Math.sin(th)*r,t,AGO.z+Math.cos(th)*r,th,1.6,.6+ring*.4,.8);}
+  seats.instanceMatrix.needsUpdate=true;
+  add(new THREE.Mesh(box,M('#a89a7d')),AGO.x,t,AGO.z).scale.set(1.4,1.8,1.4);
+  const stalls=inst(box,std(0xffffff,1),40),aw=inst(box,std(0xffffff,1),40),wares=inst(box,std(0xffffff,1),40);
+  const awc=['#c2533a','#e3d2a6','#5f7f9c','#d9a14a','#8a4a6a'].map(C),wc=['#b06a3a','#c9a35a','#7a8a4a','#d8c8a0'].map(C);
+  let ns=0;for(let i=0;i<40;i++){const th=i/40*Math.PI*2;if(Math.abs(Math.sin(th-Math.atan2(SHORE.x-AGO.x,SHORE.z-AGO.z)))<.12&&Math.cos(th-Math.atan2(SHORE.x-AGO.x,SHORE.z-AGO.z))>0)continue;
+    const r=14.2,x=AGO.x+Math.sin(th)*r,z=AGO.z+Math.cos(th)*r;
+    put(stalls,x,t,z,th,2.2,.9,1.2,C('#8a6a46'));put(aw,x,t+2.1,z,th,2.6,.12,2,pick(awc));put(wares,x,t+.9,z,th,1.8,.35,.8,pick(wc));ns++;}
+  [stalls,aw,wares].forEach(m=>{m.instanceMatrix.needsUpdate=true;m.instanceColor.needsUpdate=true;});
+  // awning poles
+  otherBuildings+=ns;
+}
+
+// ================= temples =================
+function shrine(s){
+  const t=top(s);const ang=Math.atan2(-s.x,-s.z);const g=new THREE.Group();g.position.set(s.x,t,s.z);g.rotation.y=ang;scene.add(g);
+  const st=M('#d9cdb3'),wall=M('#e6dac0'),c=std(s.col,.7);
+  const B=(w,h,d,x,y,z,m)=>{const o=new THREE.Mesh(box,m);o.scale.set(w,h,d);return add(o,x,y,z,g);};
+  B(13,.7,19,0,-.5,0,st);B(12,.4,18,0,.2,0,st);
+  B(8,5,11,0,.6,-2.5,wall);
+  for(let x=-3.6;x<=3.6;x+=2.4){add(new THREE.Mesh(new THREE.CylinderGeometry(.42,.34,5,12),c),x,3.1,5.2,g);}
+  B(10,.7,16,0,5.6,-.2,M('#cbb48c'));B(10.4,.3,16.4,0,6.3,-.2,c);
+  const r=new THREE.Mesh(gable,M('#a4502f'));r.scale.set(10.8,2.4,16.8);add(r,0,6.6,-.2,g);
+  B(2.6,1.2,1.6,0,.2,8.4,st);
+  const ff=new THREE.Mesh(new THREE.ConeGeometry(.45,1,8),new THREE.MeshBasicMaterial({color:0xffa340}));ff.position.set(0,1.9,8.4);g.add(ff);
+  const pl=new THREE.PointLight(0xff8a3d,1.2,30,2);pl.position.set(0,3,8.4);g.add(pl);fireLights.push([pl,ff]);
+  otherBuildings++;
+}
+SHRINES.forEach(shrine);
+
+// ================= granaries =================
+{
+  const t=top(GRAN);const gb=inst(new THREE.CylinderGeometry(2.4,2.6,3.2,16).translate(0,1.6,0),M('#d2bf98'),12),gr=inst(new THREE.ConeGeometry(2.9,2.6,16).translate(0,1.3,0),M('#9c8550'),12);
+  for(let i=0;i<9;i++){const x=GRAN.x+((i%3)-1)*6.5,z=GRAN.z+(Math.floor(i/3)-1)*6.5;put(gb,x,t-.2,z,0,1,1,1);put(gr,x,t+2.9,z,0,1,1,1);}
+  gb.instanceMatrix.needsUpdate=gr.instanceMatrix.needsUpdate=true;otherBuildings+=9;
+  const wall=inst(box,M('#b1a48c'),60);for(let i=0;i<60;i++){const th=i/60*Math.PI*2;if(i<3)continue;const x=GRAN.x+Math.sin(th)*13,z=GRAN.z+Math.cos(th)*13;put(wall,x,H(x,z)-.4,z,th,1.5,2,.6);}wall.instanceMatrix.needsUpdate=true;
+}
+
+// ================= steading of Eumaeus =================
+{
+  const t=top(EUM);const m=inst(box,M('#9f9480'),70);
+  for(let i=0;i<70;i++){const th=i/70*Math.PI*2,x=EUM.x+Math.sin(th)*9,z=EUM.z+Math.cos(th)*9;put(m,x,H(x,z)-.3,z,th,1,1.5,.7);}m.instanceMatrix.needsUpdate=true;
+  add(new THREE.Mesh(new THREE.CylinderGeometry(2.6,2.8,2.4,14),M('#bfa57d')),EUM.x-2.5,t+1.2,EUM.z-2.5);
+  add(new THREE.Mesh(new THREE.ConeGeometry(3.3,2.4,14),M('#9c8550')),EUM.x-2.5,t+3.6,EUM.z-2.5);
+  const pens=inst(box,M('#7b5f40'),12);for(let i=0;i<12;i++)put(pens,EUM.x+2+(i%4)*1.6,t,EUM.z+1+Math.floor(i/4)*1.7,0,1.3,1,1.4);pens.instanceMatrix.needsUpdate=true;
+  otherBuildings+=1;
+}
+
+// ================= city walls =================
+{
+  const segs=[];let i=0;const gates=RADIALS.filter((_,k)=>k%2===0);
+  for(let t=0;t<Math.PI*2;t+=3.2/WALL_R,i++){
+    const R=WALL_R+fbm(Math.cos(t)*2,Math.sin(t)*2)*6;const x=Math.sin(t)*R,z=Math.cos(t)*R;const h=H(x,z);
+    if(h<.7||h>70)continue;
+    const gate=gates.some(g=>Math.abs(((t-g+Math.PI*3)%(Math.PI*2))-Math.PI)<4.2/WALL_R);
+    if(gate)continue;
+    segs.push([x,h,z,t,i%11===0]);
+  }
+  const m=inst(box,M('#ab9e86'),segs.length);let towers=0;
+  segs.forEach(([x,h,z,t,tw])=>{if(tw){put(m,x,h-1.5,z,t,5.2,10.5,5.2);towers++;}else put(m,x,h-1.5,z,t+Math.PI/2,3.5,7+rng()*.5,2.6);});
+  m.instanceMatrix.needsUpdate=true;otherBuildings+=towers;
+}
+
+// ================= harbor =================
+const ships=[];let mkShip=null;
+{
+  const dirA=Math.atan2(bayDir.x,bayDir.y);
+  // stone mole / pier
+  const pier=inst(box,M('#8a7a62'),40);
+  for(let j=0;j<2;j++)for(let i=0;i<18;i++){const off=(j?1:-1)*11;const x=SHORE.x+shoreT.x*off+bayDir.x*(i*1.3-2),z=SHORE.z+shoreT.y*off+bayDir.y*(i*1.3-2);put(pier,x,-3.5,z,dirA,3.4,4.4,1.4);}
+  pier.instanceMatrix.needsUpdate=true;
+  // ship sheds
+  const shed=inst(box,M('#b9a27a'),12),shedR=inst(gable,M('#8c5437'),12),shedD=inst(box,M('#2a1f17'),12,false);
+  let nsh=0;
+  for(let j=-5;j<=5;j++){if(Math.abs(j)<2)continue;
+    let x=SHORE.x+shoreT.x*j*7.5,z=SHORE.z+shoreT.y*j*7.5;
+    // slide inland until on dry ground
+    let ok=false;for(let s=-10;s<30;s+=1){const X=x-bayDir.x*s,Z=z-bayDir.y*s;const h=H(X,Z);if(h>.8&&h<5){x=X-bayDir.x*6;z=Z-bayDir.y*6;ok=true;break;}}
+    if(!ok||onRoad(x,z))continue;const h=H(x,z);
+    put(shed,x,h-1,z,dirA,5.8,4.2,13);put(shedR,x,h+3.2,z,dirA,6.4,2,13.6);
+    const[fx,fz]=[x+bayDir.x*6.55,z+bayDir.y*6.55];put(shedD,fx,h-.2,fz,dirA,4.4,3,.1);nsh++;}
+  [shed,shedR,shedD].forEach(m=>m.instanceMatrix.needsUpdate=true);otherBuildings+=nsh;
+
+  const cv=document.createElement('canvas');cv.width=64;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='#eadcbc';cx.fillRect(0,0,64,64);cx.fillStyle='#8f2a1c';for(let i=0;i<64;i+=16)cx.fillRect(i,0,7,64);
+  const sailTex=new THREE.CanvasTexture(cv);
+  const hullM=M('#1c1714'),woodM=M('#6b4a2e'),sailM=new THREE.MeshStandardMaterial({map:sailTex,side:THREE.DoubleSide,roughness:1}),eyeM=new THREE.MeshBasicMaterial({color:0xd8c9a0});
+  function ship(sail){
+    const g=new THREE.Group();
+    const hull=new THREE.Mesh(box,hullM);hull.scale.set(2.2,1.1,11);hull.position.y=-.4;g.add(hull);
+    const bow=new THREE.Mesh(new THREE.ConeGeometry(1.1,3,4),hullM);bow.rotation.x=Math.PI/2;bow.rotation.y=Math.PI/4;bow.scale.set(1,1,.55);bow.position.set(0,.15,6.9);g.add(bow);
+    const ram=new THREE.Mesh(box,hullM);ram.scale.set(.3,2.2,.3);ram.position.set(0,.1,7.8);ram.rotation.x=-.35;g.add(ram);
+    const st=new THREE.Mesh(box,hullM);st.scale.set(.5,2.6,.5);st.position.set(0,0,-5.6);st.rotation.x=.55;g.add(st);
+    [-1,1].forEach(s=>{const e=new THREE.Mesh(new THREE.CircleGeometry(.22,10),eyeM);e.position.set(s*1.12,.3,5);e.rotation.y=s*Math.PI/2;g.add(e);});
+    const mast=new THREE.Mesh(new THREE.CylinderGeometry(.12,.15,sail?8:4,6),woodM);mast.position.y=sail?4:2;g.add(mast);
+    if(sail){const yard=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,7,6),woodM);yard.rotation.z=Math.PI/2;yard.position.y=7.4;g.add(yard);
+      const s=new THREE.Mesh(new THREE.PlaneGeometry(6.6,4.4,6,1),sailM);s.position.set(0,5.2,.15);g.add(s);}
+    for(let i=0;i<10;i++)[-1,1].forEach(sd=>{const o=new THREE.Mesh(box,woodM);o.scale.set(3.2,.08,.12);o.position.set(sd*2.3,-.1,-3.6+i*.8);o.rotation.z=sd*-.35;g.add(o);});
+    g.traverse(m=>{if(m.isMesh)m.castShadow=true;});return g;
+  }
+  mkShip=ship;
+  const spots=[];
+  for(let s=14;s<240;s+=13)for(const off of[-24,-12,0,12,24]){const x=SHORE.x+bayDir.x*s+shoreT.x*off,z=SHORE.z+bayDir.y*s+shoreT.y*off;
+    if(H(x,z)<-3.5&&!spots.some(p=>Math.hypot(p[0]-x,p[1]-z)<10))spots.push([x,z]);}
+  spots.sort(()=>rng()-.5);
+  for(let i=0;i<Math.min(24,spots.length);i++){const[x,z]=spots[i];const s=ship(i%3!==1);s.position.set(x,.2,z);s.rotation.y=dirA+Math.PI+(rng()-.5)*.9;s.userData.ph=rng()*6;scene.add(s);ships.push(s);}
+}
+
+// ================= countryside =================
+setMsg('Planting olive groves & vineyards…');// tholos tombs & watchtowers
+const towersAt=[NER,SHILL];
+towersAt.forEach(p=>{let bx=p.x,bz=p.z,bh=H(bx,bz);for(let i=0;i<40;i++){const x=p.x+(rng()-.5)*40,z=p.z+(rng()-.5)*40,h=H(x,z);if(h>bh){bx=x;bz=z;bh=h;}}
+  const t=new THREE.Mesh(box,M('#a69a84'));t.scale.set(5,11,5);add(t,bx,bh-1,bz);const c=new THREE.Mesh(box,M('#5a4a3a'));c.scale.set(5.6,.6,5.6);add(c,bx,bh+10,bz);
+  const f=new THREE.Mesh(new THREE.ConeGeometry(.8,1.8,8),new THREE.MeshBasicMaterial({color:0xffa340}));f.position.set(bx,bh+11.5,bz);scene.add(f);
+  const pl=new THREE.PointLight(0xff8a3d,1.5,60,2);pl.position.set(bx,bh+13,bz);scene.add(pl);fireLights.push([pl,f]);p.top=bh+12;otherBuildings++;});
+{let made=0;for(let i=0;i<60&&made<4;i++){const th=rng()*Math.PI*2,r=WALL_R+22+rng()*20;const x=Math.sin(th)*r,z=Math.cos(th)*r,h=H(x,z);if(h<2||h>40)continue;
+  const m=new THREE.Mesh(new THREE.SphereGeometry(7,20,10,0,Math.PI*2,0,Math.PI/2),M('#8a9050'));m.scale.y=.7;add(m,x,h-.6,z);
+  const dr=new THREE.Mesh(box,M('#b1a48c'));dr.scale.set(2.6,3.2,7);dr.rotation.y=th;add(dr,x+Math.sin(th)*-8,h-1,z+Math.cos(th)*-8);made++;otherBuildings++;}}
+
+const blocked=(x,z,pad)=>onRoad(x,z)||pointInLots(x,z,pad);
+// olives & cypress
+let treeCount=0;
+{
+  const T=2600,can=inst(new THREE.IcosahedronGeometry(1,0),std(0xffffff,1),T+figTrees.length),tr=inst(box,M('#5a4330'),T+figTrees.length);
+  const cyp=inst(new THREE.ConeGeometry(.75,1,7).translate(0,.5,0),M('#2f4a2a'),420);
+  const greens=['#6d7f45','#7f8d55','#5e7040','#8b9763','#6a7a50','#75884e'].map(C);
+  const olive=(x,z,h,s)=>{D.position.set(x,h+s*1.25+.6,z);D.rotation.set(rng(),rng()*6,rng());D.scale.set(s*1.3,s*.9,s*1.2);D.updateMatrix();can.setMatrixAt(can.count,D.matrix);can.setColorAt(can.count++,pick(greens));
+    put(tr,x,h-.2,z,0,.35,s*1.25+.9,.35);};
+  figTrees.forEach(([x,z])=>olive(x,z,H(x,z),.8+rng()*.4));
+  let t=0;
+  while((can.count<T+figTrees.length||cyp.count<420)&&t<4e5){t++;
+    const x=(rng()-.5)*660,z=(rng()-.5)*660,d=Math.hypot(x,z);if(d<WALL_R-2)continue;const h=H(x,z);
+    if(h<1.2||h>80||onRoad(x,z))continue;
+    const sacred=SHRINES.some(s=>{const g=Math.hypot(x-s.x,z-s.z);return g>9&&g<15;})||PALACES.some(p=>{const g=Math.hypot(x-p.x,z-p.z);return g>p.wallR+1.5&&g<p.wallR+5;});
+    if(d<WALL_R+4&&!sacred)continue;
+    if(inZone(x,z,0)&&!sacred)continue;
+    if((sacred||rng()<.1)&&cyp.count<420){put(cyp,x,h-.2,z,0,1+rng()*.4,5+rng()*5,1+rng()*.4);continue;}
+    if(can.count>=T+figTrees.length)continue;
+    if(fbm(x*.02+40,z*.02)>.15&&h<22)continue; // keep grain fields open
+    olive(x,z,h,1.1+rng()*1.1);}
+  [can,tr,cyp].forEach(m=>{m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;});
+  treeCount=can.count+cyp.count;
+}
+// vineyards, threshing floors, sheep
+{
+  const v=inst(box,M('#4f6a32'),3000);let n=0;
+  for(let p=0;p<40&&v.count<3000;p++){const th=rng()*Math.PI*2,r=WALL_R+20+rng()*60,cx=Math.sin(th)*r,cz=Math.cos(th)*r;const a=rng()*Math.PI;
+    if(H(cx,cz)<2||H(cx,cz)>35)continue;
+    for(let i=0;i<10;i++)for(let j=0;j<12;j++){const[ox,oz]=rotOff((i-4.5)*2.4,(j-5.5)*1.5,a);const x=cx+ox,z=cz+oz,h=H(x,z);if(h<1.5||onRoad(x,z)||v.count>=3000)continue;put(v,x,h-.1,z,a,.6,.95,.9);}}
+  v.instanceMatrix.needsUpdate=true;
+  const tf=inst(new THREE.CylinderGeometry(3.6,3.6,.3,20),M('#d8c38f'),30,false);let k=0;
+  while(tf.count<30&&k<3000){k++;const x=(rng()-.5)*560,z=(rng()-.5)*560,h=H(x,z);if(Math.hypot(x,z)<WALL_R+12||h<2||h>25||onRoad(x,z))continue;if(Math.abs(H(x+3,z)-H(x-3,z))>.8)continue;put(tf,x,h,z,0,1,1,1);}
+  tf.instanceMatrix.needsUpdate=true;
+  const sh=inst(box,M('#ece6d6'),260,false);let f=0;
+  while(sh.count<260&&f<5000){f++;const c=pick([NER,SHILL,{x:-70,z:285},{x:285,z:-100}]);const x=c.x+(rng()-.5)*90,z=c.z+(rng()-.5)*90,h=H(x,z);if(h<3||Math.hypot(x,z)<WALL_R+8)continue;put(sh,x,h,z,rng()*6,.55,.5,.95);}
+  sh.instanceMatrix.needsUpdate=true;
+}
+
+// ================= labels / navigation =================
+const PLACES=[{name:'Overview',cam:[390,290,430],tgt:[10,8,20]}];
+PALACES.forEach(p=>{const t=top(p);PLACES.push({name:p.name,pos:[p.x,t+12*p.k,p.z],cam:[p.x+45*p.k,t+30*p.k,p.z+48*p.k],tgt:[p.x,t,p.z],main:p.grand});});
+const at3=(o,y)=>({name:o.name,pos:[o.x,y+8,o.z],cam:[o.x+30,y+22,o.z+32],tgt:[o.x,y,o.z]});
+PLACES.push(at3(AGO,top(AGO)));
+PLACES.push({name:'Harbor of Phorcys',pos:[SHORE.x+bayDir.x*30,10,SHORE.z+bayDir.y*30],cam:[SHORE.x+95,40,SHORE.z+5],tgt:[SHORE.x+bayDir.x*18,0,SHORE.z+bayDir.y*18]});
+SHRINES.forEach(s=>PLACES.push(at3(s,top(s))));
+PLACES.push(at3(GRAN,top(GRAN)));PLACES.push(at3(EUM,top(EUM)));
+PLACES.push({name:'Mount Neritos',pos:[NER.x,NER.top+6,NER.z],cam:[NER.x+120,NER.top+40,NER.z+120],tgt:[NER.x,NER.top-20,NER.z]});
+{const a=Math.atan2(AGO.x,AGO.z);const r=58;PLACES.push({name:'Street level',cam:[Math.sin(a)*r,H(Math.sin(a)*r,Math.cos(a)*r)+3,Math.cos(a)*r],tgt:[0,top(PALACES[0])+8,0]});}
+const lblHost=document.getElementById('labels');
+PLACES.forEach(p=>{if(!p.pos)return;p.v=new THREE.Vector3(...p.pos);const el=document.createElement('div');
+  el.className='lbl absolute font-display tracking-wider px-2 py-0.5 rounded-md bg-black/55 border border-bronze-400/30 '+(p.main?'text-[14px] text-bronze-300':'text-[11px] text-stone-200');
+  el.textContent=p.name;lblHost.appendChild(el);p.el=el;});
+let showLabels=true;const pv=new THREE.Vector3();
+function updLabels(){PLACES.forEach(p=>{if(!p.el)return;pv.copy(p.v).project(camera);const dist=camera.position.distanceTo(p.v);
+  const vis=showLabels&&pv.z<1&&Math.abs(pv.x)<1.05&&Math.abs(pv.y)<1.05&&(p.main||dist<(p.near||700));p.el.style.opacity=vis?1:0;
+  if(vis){p.el.style.left=(pv.x*.5+.5)*innerWidth+'px';p.el.style.top=(-pv.y*.5+.5)*innerHeight+'px';}});}
+let fly=null;
+function goTo(p){fly={t:0,fp:camera.position.clone(),ft:controls.target.clone(),tp:new THREE.Vector3(...p.cam),tt:new THREE.Vector3(...p.tgt)};}
+PLACES.forEach(p=>{
+  const b=document.createElement('button');b.className='text-left text-sm px-3 py-1.5 rounded-lg hover:bg-bronze-500/25 hover:text-bronze-300 transition';b.textContent=p.name;b.onclick=()=>goTo(p);document.getElementById('places').appendChild(b);
+  });
+document.getElementById('tLabels').onchange=e=>showLabels=e.target.checked;
+document.getElementById('tRotate').onchange=e=>controls.autoRotate=e.target.checked;
+
+// ================= time of day =================
+let dayF=1;
+const K={nTop:C('#060b1f'),dTop:C('#3f86d6'),nHor:C('#16203f'),dHor:C('#cfe0ea'),dusk:C('#f2874a'),duskTop:C('#5b4a8a')};
+function setTime(t){
+  const th=lerp(-.32*Math.PI,1.32*Math.PI,t),el=Math.sin(th);
+  dayF=smooth(-.1,.25,el);const dusk=Math.exp(-(((el-.06)/.17)**2));
+  const sd=new THREE.Vector3(Math.cos(th)*.9,el,.42).normalize();skyU.sunDir.value.copy(sd);
+  const tp=K.nTop.clone().lerp(K.dTop,dayF).lerp(K.duskTop,dusk*.45),hor=K.nHor.clone().lerp(K.dHor,dayF).lerp(K.dusk,dusk*.75);
+  skyU.top.value.copy(tp);skyU.horizon.value.copy(hor);skyU.bottom.value.copy(C('#0b2638').lerp(C('#02060d'),1-dayF));
+  skyU.sunCol.value.copy(C('#fff3d6').lerp(C('#ff9b50'),dusk)).multiplyScalar(el>-.05?1:0);
+  scene.fog.color.copy(hor);
+  if(el>-.02){sun.position.copy(sd).multiplyScalar(600);sun.color.copy(C('#fff4e0').lerp(C('#ff9a5a'),dusk));sun.intensity=.15+1.2*dayF;}
+  else{sun.position.set(-sd.x,-sd.y,sd.z).multiplyScalar(600);sun.color.set('#8fa6ff');sun.intensity=.28;}
+  sun.position.add(new THREE.Vector3(10,0,10));sun.target.position.set(10,0,10);
+  hemi.intensity=.18+.5*dayF;hemi.color.copy(C('#5a6fa8').lerp(C('#cfe3ff'),dayF));hemi.groundColor.copy(C('#1d1a22').lerp(C('#6b5a3a'),dayF));
+  stars.material.opacity=clamp(1-dayF*1.6,0,1);
+  waterMat.color.copy(C('#0b2236').lerp(C('#1d6a8c'),dayF)).lerp(C('#6a4a5a'),dusk*.3);
+  winMat.color.copy(C('#2e2218').lerp(C('#ffb04a'),clamp(1-dayF*1.4,0,1)));
+  renderer.toneMappingExposure=.95+.2*dayF;
+  document.getElementById('timeName').textContent=el<-.08?'Night':dusk>.5?(t<.5?'Dawn':'Dusk'):el>.8?'Midday':t<.5?'Morning':'Afternoon';
+}
+const tIn=document.getElementById('time');tIn.oninput=()=>setTime(tIn.value/1000);setTime(.3);
+
+// ================= house picking =================
+const NAMES=['Eumaeus','Philoetius','Mentor','Halitherses','Noemon','Phronius','Dolius','Medon','Phemius','Aegyptius','Peisenor','Polyctor','Mastor','Antiphus','Eurybates','Ctesippus','Amphimedon','Polybus','Damastor','Elatus','Peisander','Agelaus','Leiocritus','Aretias','Nisus','Melaneus','Thoas','Erymanthus','Eurynomus','Clytius','Ithacus','Neritus','Pseras','Lycus','Autolycus','Arceisius'];
+const JOBS=[['Fisherman','His nets dry on the roof; he knows every rock of the bay.'],['Potter','The kiln in the yard smokes from dawn; his kraters go to Same and Zacynthus.'],['Shepherd','Flocks graze high on Neritos, thick with quivering leaves.'],['Swineherd','Sends fattened hogs up to the palace — too many, these days.'],['Weaver','The loom stands in the court, like Penelope’s own.'],['Bronzesmith','The ringing of his hammer is heard from the agora.'],['Shipwright','Builds black hulls with painted eyes in the harbor sheds.'],['Vintner','Dark wine from the terraces, stored in great pithoi.'],['Beekeeper','Honey for the feasts in the great hall.'],['Oarsman','Rowed with the fleet to Troy; still waits for news of his king.'],['Olive presser','Oil for lamps, for the bath, for the gods.'],['Goatherd','His goats pick their way along the ravines.'],['Carpenter','Joins doors of seasoned oak for the island’s houses.'],['Herald','Calls the people to assembly in the agora.'],['Merchant','Trades oil and wine with Phoenician ships for bronze and purple cloth.'],['Bard','Sings of the heroes at Troy for a place at the hearth.']];
+const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let downAt=null,sel=-1;
+const info=document.getElementById('info');document.getElementById('iTot').textContent=N.toLocaleString();
+const quarter=q=>{const deg=(q*180/Math.PI+360)%360;return['South','South-east','East','North-east','North','North-west','West','South-west'][Math.round(deg/45)%8]+' quarter';};
+function showHouse(i){
+  if(sel>=0)mainM.setColorAt(sel,houseColorNow(sel));
+  sel=i;mainM.instanceColor.needsUpdate=true;
+  if(i<0){info.classList.add('opacity-0','translate-y-3','pointer-events-none');return;}
+  mainM.setColorAt(i,C('#ffcf6b'));mainM.instanceColor.needsUpdate=true;
+  const r=mulberry32(i*7919+3),h=houses[i];const j=h.kiln?JOBS[1]:JOBS[Math.floor(r()*JOBS.length)];
+  document.getElementById('iNum').textContent=(i+1).toLocaleString();
+  document.getElementById('iName').textContent='House of '+NAMES[Math.floor(r()*NAMES.length)];
+  document.getElementById('iJob').textContent=j[0];
+  document.getElementById('iSize').textContent=(3+Math.floor(r()*8))+' souls';
+  document.getElementById('iStorey').textContent=h.two?'Two (upper chamber)':'One';
+  document.getElementById('iRoof').textContent=h.roofType==='hip'?'Clay tiles':'Flat, beaten earth';
+  document.getElementById('iYard').textContent=h.hasYard?(h.fig?'Yes, with a fig tree':'Yes, with storage jars'):'No';
+  document.getElementById('iQ').textContent=quarter(h.q);
+  document.getElementById('iNote').textContent=j[1];
+  document.getElementById('iStat').textContent=houseStatusText(i);
+  if(typeof showSite==='function')showSite(null);
+  info.classList.remove('opacity-0','translate-y-3','pointer-events-none');
+}
+document.getElementById('iClose').onclick=()=>showHouse(-1);
+renderer.domElement.addEventListener('pointerdown',e=>downAt=[e.clientX,e.clientY]);
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!downAt||Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1])>5)return;
+  mouse.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(mouse,camera);
+  const hit=ray.intersectObjects([mainM,hipM,eaveM,flatM,annexM,annexRoofM,socleM,terrain],false)[0];
+  if(!hit||hit.object===terrain){showHouse(-1);return;}
+  showHouse(hit.instanceId);
+});
+
+// =====================================================================
+// ===================== CRISIS SIMULATIONS OF ITHACA ==================
+// =====================================================================
+// Four deterministic disasters that damage the city and cascade through
+// its systems (command, shelters, healers, grain, harbor, beacons):
+//   fire   — Fire in the Palace (minutes)
+//   rain   — The Great Rains: rising sea, mudbrick collapse, landslides (hours)
+//   attack — Raiders from the sea: fleet, landing, battle front, looting (minutes)
+//   quake  — Poseidon the Earth-Shaker: collapses, fires, aftershocks, tsunami (minutes)
+setMsg('Consulting the oracle…');
+houses.forEach((h,i)=>h.idx=i);
+const ramp=(t,a,b)=>clamp((t-a)/(b-a),0,1);
+const dist2=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+
+// ---------- houses ----------
+const HX=new Float32Array(N),HZ=new Float32Array(N),HY=new Float32Array(N),HMIN=new Float32Array(N),SLOPE=new Float32Array(N);
+houses.forEach((h,i)=>{HX[i]=h.cx;HZ[i]=h.cz;HY[i]=h.hmax+h.hgt;HMIN[i]=h.hmin;SLOPE[i]=h.hmax-h.hmin;});
+function soulsOf(i){const r=mulberry32(i*7919+3);if(!houses[i].kiln)r();r();return 3+Math.floor(r()*8);}
+const SOULS=new Uint8Array(N);for(let i=0;i<N;i++)SOULS[i]=soulsOf(i);
+const TOTAL_SOULS=SOULS.reduce((a,b)=>a+b,0);
+const TUNE={spread:.62,ember:.07,road:.45,quench:.1,neighR:12,palFuel:11};
+let NEIGH_R=TUNE.neighR;const neighCache=new Map();
+function neigh(i){
+  let a=neighCache.get(i);if(a)return a;a=[];
+  for(const o of nearH(HX[i],HZ[i])){const j=o.idx;if(j===i)continue;const dx=HX[j]-HX[i],dz=HZ[j]-HZ[i],d=Math.hypot(dx,dz);if(d>NEIGH_R)continue;
+    const road=onRoad(HX[i]+dx*.5,HZ[i]+dz*.5)||onRoad(HX[i]+dx*.33,HZ[i]+dz*.33)||onRoad(HX[i]+dx*.66,HZ[i]+dz*.66);
+    a.push([j,dx/d,dz/d,d,road]);}
+  neighCache.set(i,a);return a;
+}
+
+// ---------- city systems ----------
+const ST={ok:'#4ade80',alert:'#facc15',threatened:'#fb923c',strained:'#fb923c',damaged:'#f97316',overloaded:'#ef4444',burning:'#ff4d1f',flooded:'#38bdf8',occupied:'#e11d48',destroyed:'#b91c1c'};
+const ST_LABEL={ok:'Normal',alert:'On alert',threatened:'Threatened',strained:'Strained',damaged:'Damaged',overloaded:'Overwhelmed',burning:'Burning',flooded:'Flooded',occupied:'Overrun',destroyed:'Destroyed'};
+const ST_RANK={ok:0,alert:1,threatened:2,strained:2,damaged:3,overloaded:3,flooded:3,burning:4,occupied:4,destroyed:5};
+const SYS=[];
+const mk=o=>{o.status='ok';o.load=0;o.care=o.care||0;o.careLoad=0;o.blocked=false;SYS.push(o);return o;};
+const PAL_G=[120,50,50,50,50];
+const SP=PALACES.map((p,i)=>mk({id:'pal'+i,name:p.name,kind:'palace',x:p.x,z:p.z,y:top(p),p,garrison:PAL_G[i]}));
+const S_AGO=mk({id:'agora',name:'The Agora',kind:'shelter',x:AGO.x,z:AGO.z,y:top(AGO),cap:2000,care:200});
+const S_TEM=SHRINES.map((s,i)=>mk({id:'tem'+i,name:s.name,kind:'shelter',x:s.x,z:s.z,y:top(s),cap:[800,800,600][i],care:[100,0,140][i]}));
+const S_GRAN=mk({id:'gran',name:GRAN.name,kind:'granary',x:GRAN.x,z:GRAN.z,y:top(GRAN),cap:3200});
+const S_EUM=mk({id:'eum',name:EUM.name,kind:'shelter',x:EUM.x,z:EUM.z,y:top(EUM),cap:300});
+const S_HAR=mk({id:'harbor',name:'Harbor of Phorcys',kind:'harbor',x:SHORE.x,z:SHORE.z,y:2});
+const S_TOW=[mk({id:'tow0',name:'Beacon of Mount Neritos',kind:'tower',x:NER.x,z:NER.z,y:NER.top||60}),
+             mk({id:'tow1',name:'Beacon of the South Hill',kind:'tower',x:SHILL.x,z:SHILL.z,y:SHILL.top||40})];
+const BASE_SHELTERS=[S_AGO,...S_TEM,S_GRAN,S_EUM];
+S_EUM.cap=200;BASE_SHELTERS.forEach(s=>s.shelterCap=s===S_GRAN?500:s.cap);
+// --- schools, hospitals and garrisons become city systems ---
+const SITE_SYS=[];
+function siteSys(st,added){
+  const r=mulberry32(9000+SITE_SYS.length*31);
+  if(st.kind==='hospital')st.beds=st.beds||(added?40:10+Math.round(r()*12));
+  if(st.kind==='school')st.places=st.places||(added?350:150+Math.round(r()*150));
+  if(st.kind==='base')st.garrison=st.garrison||(added?22:10+Math.round(r()*8));
+  const o=mk({id:'site'+SITE_SYS.length,name:st.name,kind:st.kind,x:st.x,z:st.z,y:st.y,site:st,devAdded:!!added,active:true});
+  if(st.kind==='hospital'){o.care0=o.care=st.beds;}
+  else if(st.kind==='school'){o.cap0=o.cap=o.shelterCap=st.places;}
+  else{o.garrison0=o.garrison=st.garrison;}
+  SITE_SYS.push(o);st.sys=o;return o;
+}
+SITES.forEach(st=>siteSys(st,false));
+const live=s=>s.active!==false;
+const shelterList=()=>BASE_SHELTERS.concat(SITE_SYS.filter(o=>o.kind==='school'&&live(o))).concat(S&&S.halls?SP.filter(p=>p.status!=='destroyed'&&p.shelterCap>0):[]);
+const hospitals=()=>SITE_SYS.filter(o=>o.kind==='hospital'&&live(o)&&!o.blocked&&o.status!=='destroyed');
+const basesAlive=()=>SITE_SYS.filter(o=>o.kind==='base'&&live(o)&&o.status!=='destroyed'&&!o.overrun);
+function nearestOf(list,x,z){let b=null,bd=1e9;for(const o of list){const d=Math.hypot(o.x-x,o.z-z);if(d<bd){bd=d;b=o;}}return[b,bd];}
+function careList(x,z){return hospitals().sort((a,b)=>Math.hypot(a.x-x,a.z-z)-Math.hypot(b.x-x,b.z-z)).concat([S_TEM[2],S_TEM[0],S_TEM[1],S_AGO]);}
+const raise=(s,st)=>{if(ST_RANK[st]>ST_RANK[s.status])s.status=st;};
+
+// ---------- particles ----------
+const PCAN=document.createElement('canvas');PCAN.width=PCAN.height=64;{const g=PCAN.getContext('2d');const gr=g.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.35,'rgba(255,255,255,.7)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);}
+const PTEX=new THREE.CanvasTexture(PCAN);
+const PV=`attribute float aSize;attribute float aAlpha;attribute vec3 aColor;uniform float uScale;varying float vA;varying vec3 vC;
+void main(){vec4 mv=modelViewMatrix*vec4(position,1.);gl_PointSize=aSize*uScale/max(-mv.z,1.);gl_Position=projectionMatrix*mv;vA=aAlpha;vC=aColor;}`;
+const PF=`uniform sampler2D map;varying float vA;varying vec3 vC;void main(){vec4 t=texture2D(map,gl_PointCoord);float a=t.a*vA;if(a<.004)discard;gl_FragColor=vec4(vC*t.rgb,a);}`;
+const pmats=[];
+function pointsMat(blend){const m=new THREE.ShaderMaterial({uniforms:{map:{value:PTEX},uScale:{value:800}},vertexShader:PV,fragmentShader:PF,transparent:true,depthWrite:false,blending:blend});pmats.push(m);return m;}
+function Pool(max,blend){
+  const g=new THREE.BufferGeometry();
+  const P=new Float32Array(max*3),SZ=new Float32Array(max),A=new Float32Array(max),CL=new Float32Array(max*3);
+  g.setAttribute('position',new THREE.BufferAttribute(P,3));g.setAttribute('aSize',new THREE.BufferAttribute(SZ,1));
+  g.setAttribute('aAlpha',new THREE.BufferAttribute(A,1));g.setAttribute('aColor',new THREE.BufferAttribute(CL,3));
+  const pts=new THREE.Points(g,pointsMat(blend));pts.frustumCulled=false;pts.renderOrder=5;scene.add(pts);
+  const V=new Float32Array(max*3),L=new Float32Array(max),ML=new Float32Array(max),S0=new Float32Array(max),S1=new Float32Array(max),K=new Uint8Array(max);
+  let head=0;
+  return{
+    // kinds: 0 flame, 1 smoke/dust, 2 ember, 3 fire-arrow (ballistic)
+    emit(x,y,z,vx,vy,vz,life,s0,s1,r,gg,b,kind){const i=head;head=(head+1)%max;P[i*3]=x;P[i*3+1]=y;P[i*3+2]=z;V[i*3]=vx;V[i*3+1]=vy;V[i*3+2]=vz;L[i]=ML[i]=life;S0[i]=s0;S1[i]=s1;CL[i*3]=r;CL[i*3+1]=gg;CL[i*3+2]=b;K[i]=kind;},
+    update(dt){for(let i=0;i<max;i++){if(L[i]<=0){A[i]=0;continue;}L[i]-=dt;const age=1-Math.max(L[i],0)/ML[i];const k=K[i];
+      if(k===3)V[i*3+1]-=40*dt;
+      P[i*3]+=V[i*3]*dt;P[i*3+1]+=V[i*3+1]*dt;P[i*3+2]+=V[i*3+2]*dt;SZ[i]=S0[i]+(S1[i]-S0[i])*age;
+      if(k===0){A[i]=(1-age)*.95;CL[i*3+1]=Math.max(.18,CL[i*3+1]-dt*.9);}else if(k===1){A[i]=Math.sin(Math.PI*age)*.34;V[i*3]*=.995;V[i*3+2]*=.995;}else if(k===3){A[i]=1;}else{A[i]=(1-age);}
+      if(L[i]<=0)A[i]=0;}
+      g.attributes.position.needsUpdate=g.attributes.aSize.needsUpdate=g.attributes.aAlpha.needsUpdate=g.attributes.aColor.needsUpdate=true;},
+    clear(){L.fill(0);A.fill(0);g.attributes.aAlpha.needsUpdate=true;}};
+}
+const FIRE=Pool(6000,THREE.AdditiveBlending), SMOKE=Pool(4500,THREE.NormalBlending);
+
+// ---------- walking dots: people, crews, wounded, grain ----------
+const FLOW_MAX=1400;
+const flowG=new THREE.BufferGeometry();
+const FP=new Float32Array(FLOW_MAX*3),FS=new Float32Array(FLOW_MAX).fill(1.4),FA=new Float32Array(FLOW_MAX),FC=new Float32Array(FLOW_MAX*3);
+flowG.setAttribute('position',new THREE.BufferAttribute(FP,3));flowG.setAttribute('aSize',new THREE.BufferAttribute(FS,1));flowG.setAttribute('aAlpha',new THREE.BufferAttribute(FA,1));flowG.setAttribute('aColor',new THREE.BufferAttribute(FC,3));
+const flowPts=new THREE.Points(flowG,pointsMat(THREE.AdditiveBlending));flowPts.frustumCulled=false;flowPts.renderOrder=6;scene.add(flowPts);
+const flows=new Array(FLOW_MAX).fill(null);let flowHead=0;
+function spawnFlow(ax,az,bx,bz,col,delay,speed){const i=flowHead;flowHead=(flowHead+1)%FLOW_MAX;const d=Math.hypot(bx-ax,bz-az);
+  flows[i]={ax,az,bx,bz,age:-delay,dur:Math.max(1.5,d/speed),jit:(Math.random()-.5)*3};FC[i*3]=col.r;FC[i*3+1]=col.g;FC[i*3+2]=col.b;}
+function updateFlows(dt){for(let i=0;i<FLOW_MAX;i++){const f=flows[i];if(!f){FA[i]=0;continue;}f.age+=dt;if(f.age<0){FA[i]=0;continue;}
+  const u=f.age/f.dur;if(u>=1){flows[i]=null;FA[i]=0;continue;}
+  const nx=-(f.bz-f.az),nz=f.bx-f.ax,nl=Math.hypot(nx,nz)||1;const x=lerp(f.ax,f.bx,u)+nx/nl*f.jit*Math.sin(u*Math.PI),z=lerp(f.az,f.bz,u)+nz/nl*f.jit*Math.sin(u*Math.PI);
+  FP[i*3]=x;FP[i*3+1]=Math.max(H(x,z),WL+.2,.4)+1.3;FP[i*3+2]=z;FA[i]=Math.min(1,u*8,(1-u)*8);}
+  flowG.attributes.position.needsUpdate=flowG.attributes.aAlpha.needsUpdate=flowG.attributes.aColor.needsUpdate=true;}
+const COL={people:C('#fff1c7'),crew:C('#5ec8ff'),hurt:C('#ff6b6b'),grain:C('#ffd166'),raider:C('#ff3b3b'),guard:C('#7cc4ff')};
+
+// ---------- armies (battle front) ----------
+const ARMY_MAX=640;
+const armyG=new THREE.BufferGeometry();
+const AP=new Float32Array(ARMY_MAX*3),AS=new Float32Array(ARMY_MAX).fill(1.6),AA=new Float32Array(ARMY_MAX),AC=new Float32Array(ARMY_MAX*3);
+armyG.setAttribute('position',new THREE.BufferAttribute(AP,3));armyG.setAttribute('aSize',new THREE.BufferAttribute(AS,1));armyG.setAttribute('aAlpha',new THREE.BufferAttribute(AA,1));armyG.setAttribute('aColor',new THREE.BufferAttribute(AC,3));
+const armyPts=new THREE.Points(armyG,pointsMat(THREE.AdditiveBlending));armyPts.frustumCulled=false;armyPts.renderOrder=6;scene.add(armyPts);
+const armyOff=[];for(let i=0;i<ARMY_MAX;i++){const a=Math.random()*6.283,r=Math.sqrt(Math.random());armyOff.push([Math.cos(a)*r,Math.sin(a)*r,Math.random()*6.283]);const c=i<ARMY_MAX/2?COL.raider:COL.guard;AC[i*3]=c.r;AC[i*3+1]=c.g;AC[i*3+2]=c.b;}
+
+// ---------- cascade arcs ----------
+const DASH=document.createElement('canvas');DASH.width=64;DASH.height=4;{const g=DASH.getContext('2d');const gr=g.createLinearGradient(0,0,64,0);gr.addColorStop(0,'rgba(255,255,255,0)');gr.addColorStop(.5,'rgba(255,255,255,1)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,64,4);}
+const arcs=new Map();
+function arc(key,a,b,color,lift=1){
+  if(arcs.has(key)||!a||!b)return;
+  const A=new THREE.Vector3(a.x,(a.y||H(a.x,a.z))+8,a.z),B=new THREE.Vector3(b.x,(b.y||H(b.x,b.z))+8,b.z);const d=A.distanceTo(B);if(d<4)return;
+  const M2=A.clone().lerp(B,.5);M2.y+=Math.min(110,d*.32+14)*lift;
+  const curve=new THREE.QuadraticBezierCurve3(A,M2,B);
+  const tex=new THREE.CanvasTexture(DASH);tex.wrapS=THREE.RepeatWrapping;tex.repeat.set(Math.max(2,d/18),1);
+  const mat=new THREE.MeshBasicMaterial({map:tex,color:new THREE.Color(color),transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});
+  const mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,64,.38,6,false),mat);mesh.renderOrder=4;scene.add(mesh);
+  const core=new THREE.Mesh(new THREE.TubeGeometry(curve,64,.12,5,false),new THREE.MeshBasicMaterial({color:new THREE.Color(color),transparent:true,opacity:0,depthWrite:false,fog:false}));scene.add(core);
+  arcs.set(key,{mesh,core,mat,tex,a,b,color});
+}
+function clearArcs(){arcs.forEach(a=>{scene.remove(a.mesh);scene.remove(a.core);a.mesh.geometry.dispose();a.core.geometry.dispose();a.mat.dispose();a.tex.dispose();a.core.material.dispose();});arcs.clear();}
+function fadeArcs(prefix){arcs.forEach((a,k)=>{if(k.startsWith(prefix))a.fade=true;});}
+
+// ---------- status beacons ----------
+const beaconGeo=new THREE.CylinderGeometry(2.4,2.4,70,16,1,true);beaconGeo.translate(0,35,0);
+const ringGeo=new THREE.RingGeometry(5,7,40);ringGeo.rotateX(-Math.PI/2);
+function makeBeacon(s){
+  const bm=new THREE.MeshBasicMaterial({color:ST.ok,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false});
+  const rm=bm.clone();
+  const b=new THREE.Mesh(beaconGeo,bm),r=new THREE.Mesh(ringGeo,rm);b.position.set(s.x,s.y,s.z);r.position.set(s.x,s.y+.6,s.z);
+  const k=s.kind==='palace'?s.p.k*2.2:s.site?.95:1.3;r.scale.setScalar(k);b.scale.set(k*.8,s.site?.55:1,k*.8);scene.add(b);scene.add(r);s.beacon=b;s.ring=r;b.visible=r.visible=false;
+}
+SYS.forEach(makeBeacon);
+
+// ---------- lights, rain, weather ----------
+const palLight=new THREE.PointLight(0xff6a2a,0,190,2);scene.add(palLight);
+const clusterLights=[0,1,2,3].map(()=>{const l=new THREE.PointLight(0xff7a30,0,80,2);scene.add(l);return l;});
+const RAIN_N=8000,rainPos=new Float32Array(RAIN_N*6);
+const rainG=new THREE.BufferGeometry();rainG.setAttribute('position',new THREE.BufferAttribute(rainPos,3));rainG.setDrawRange(0,0);
+const rainLines=new THREE.LineSegments(rainG,new THREE.LineBasicMaterial({color:0xa9c3d6,transparent:true,opacity:.42,depthWrite:false}));rainLines.frustumCulled=false;scene.add(rainLines);
+for(let i=0;i<RAIN_N;i++){rainPos[i*6+1]=-999;}
+let WL=0;                 // current (visual) water level above normal sea
+const WEATHER={w:0,flash:0,applied:false};
+const SHAKE={amp:0,off:new THREE.Vector3()};
+
+// ---------- snapshots so Reset restores the city ----------
+const IM=[mainM,socleM,hipM,eaveM,flatM,annexM,annexRoofM];
+const SNAP=IM.map(m=>({c:m.instanceColor.array.slice(),x:m.instanceMatrix.array.slice()}));
+ships.forEach(s=>{s.userData.base=s.position.clone();s.userData.rot=s.rotation.y;});
+PALACES.forEach(p=>{p.meshes=[];p.group.traverse(o=>{if(o.isMesh&&!(o.material instanceof THREE.MeshBasicMaterial))p.meshes.push(o);});});
+const ROOF_MATS=[matCache['#6e3a26'],matCache['#a4502f']];
+const CHAR=C('#241c17'),EMBER=C('#6b2a14'),SCORCH=C('#7d6a58'),ROOFCHAR=C('#16110e'),WET=C('#6f8794'),WETROOF=C('#4c5a63'),RUBBLE=C('#8f8070'),CRACK=C('#b8ab97'),LOOT=C('#7a6c5c');
+const tmpM=new THREE.Matrix4(),tmpP=new THREE.Vector3(),tmpQ=new THREE.Quaternion(),tmpS=new THREE.Vector3();
+function scaleInst(m,i,sy){m.getMatrixAt(i,tmpM);tmpM.decompose(tmpP,tmpQ,tmpS);tmpS.y*=sy;tmpM.compose(tmpP,tmpQ,tmpS);m.setMatrixAt(i,tmpM);m.instanceMatrix.needsUpdate=true;}
+function hideInst(m,i){m.getMatrixAt(i,tmpM);tmpM.decompose(tmpP,tmpQ,tmpS);tmpS.set(0,0,0);tmpM.compose(tmpP,tmpQ,tmpS);m.setMatrixAt(i,tmpM);m.instanceMatrix.needsUpdate=true;}
+function tintHouse(i,wall,roof){
+  mainM.setColorAt(i,wall);annexM.setColorAt(i,wall);socleM.setColorAt(i,wall.clone().multiplyScalar(.8));
+  if(roof){hipM.setColorAt(i,roof);eaveM.setColorAt(i,roof);flatM.setColorAt(i,roof);annexRoofM.setColorAt(i,roof);}
+  IM.forEach(m=>m.instanceColor.needsUpdate=true);
+}
+function ruinHouse(i,wallScale){[hipM,eaveM,flatM,annexRoofM].forEach(m=>hideInst(m,i));scaleInst(mainM,i,wallScale);scaleInst(annexM,i,wallScale*.9);}
+
+// =====================================================================
+// ======================== state & shared mechanics ===================
+// house states
+const HS={ok:0,burning:1,burned:2,scorched:3,flooded:4,collapsed:5,looted:6,cracked:7};
+let S=null;
+// common random numbers: the same house gets the same luck in every run, so plan comparisons are fair
+function hr(a,b,c){let h=(Math.imul(a+1,374761393)^Math.imul(b+7,668265263)^Math.imul(c+13,1442695041)^S.seed)|0;h=Math.imul(h^(h>>>15),2246822507);h=Math.imul(h^(h>>>13),3266489909);h^=h>>>16;return(h>>>0)/4294967296;}
+function houseColorNow(i){if(!S)return houses[i].col;return[houses[i].col,EMBER,CHAR,SCORCH,WET,RUBBLE,LOOT,CRACK][S.hs[i]];}
+function houseStatusText(i){if(!S)return'At peace';const st=S.hs[i];
+  return st===0?(S.evac[i]?'Evacuated':'Holding on'):['','Ablaze!','Burned — family displaced','Scorched, saved by the brigade','Flooded — family fled','Collapsed — family in the rubble','Plundered by raiders','Cracked walls — unsafe'][st];}
+
+function newState(kind,o1,o2){
+  return{seed:(kind.length*7919+String(o1).length*131+String(o2).charCodeAt(0)*17+(+o1||0)*53)|0,kind,o1,o2,rnd:mulberry32(7000+kind.length*977+String(o1).length*131+String(o2).charCodeAt(0)*17+(+o1||0)*53),t:0,tick:-1,playing:true,speed:S_SPEED,
+    hs:new Uint8Array(N),bStart:new Float32Array(N),bDur:new Float32Array(N),evac:new Uint8Array(N),
+    burning:new Set(),burned:0,saved:0,flooded:0,collapsed:0,looted:0,cracked:0,displaced:0,injured:0,supp:0,
+    events:[],flags:{},done:false,src:null,pf:null,grainFactor:1,level:0,maxSev:0,untreated:0,unsheltered:0,hospUsed:0,hospFull:0,silent:false,ivs:[],
+    curve:[],startedAt:new Date().toISOString()};
+}
+function ignite(i){
+  if(S.hs[i]!==HS.ok&&S.hs[i]!==HS.cracked&&S.hs[i]!==HS.looted&&S.hs[i]!==HS.collapsed)return;
+  const wasCollapsed=S.hs[i]===HS.collapsed;
+  S.hs[i]=HS.burning;S.bStart[i]=S.t;S.bDur[i]=7+hr(i,5,0)*5;S.burning.add(i);S._wasCol=S._wasCol||new Set();if(wasCollapsed)S._wasCol.add(i);
+  tintHouse(i,EMBER,ROOFCHAR);
+  const hurt=Math.round(SOULS[i]*(S.evac[i]?.06:.15+hr(i,3,0)*.15))+(S.supp>.1&&hr(i,4,0)<.35?1:0);
+  if(hurt>0)sendInjured(hurt,HX[i],HZ[i]);
+  if(!S.evac[i])evacuate(i);
+}
+function finishBurn(i,saved){
+  S.burning.delete(i);
+  if(saved){S.hs[i]=HS.scorched;S.saved++;tintHouse(i,SCORCH,null);}
+  else{S.hs[i]=HS.burned;S.burned++;tintHouse(i,CHAR,ROOFCHAR);if(!(S._wasCol&&S._wasCol.has(i)))ruinHouse(i,.55);}
+}
+function collapseHouse(i,dust=true){
+  if(S.hs[i]===HS.collapsed||S.hs[i]===HS.burned||S.hs[i]===HS.burning)return false;
+  S.hs[i]=HS.collapsed;S.collapsed++;tintHouse(i,RUBBLE,RUBBLE);ruinHouse(i,.28);
+  if(dust)for(let k=0;k<3;k++){const g=.55+Math.random()*.1;SMOKE.emit(HX[i]+(Math.random()-.5)*3,HMIN[i]+1.5,HZ[i]+(Math.random()-.5)*3,(Math.random()-.5)*3,1.5+Math.random()*2,(Math.random()-.5)*3,4+Math.random()*3,4,14,g,g*.9,g*.78,1);}
+  if(!S.evac[i])evacuate(i);
+  return true;
+}
+function floodHouse(i){if(S.hs[i]!==HS.ok&&S.hs[i]!==HS.cracked)return false;S.hs[i]=HS.flooded;S.flooded++;tintHouse(i,WET,WETROOF);if(!S.evac[i])evacuate(i);return true;}
+function lootHouse(i){if(S.hs[i]!==HS.ok)return false;S.hs[i]=HS.looted;S.looted++;tintHouse(i,LOOT,null);if(!S.evac[i])evacuate(i);return true;}
+function crackHouse(i){if(S.hs[i]!==HS.ok)return false;S.hs[i]=HS.cracked;S.cracked++;tintHouse(i,CRACK,null);if(!S.evac[i])evacuate(i);return true;}
+
+function nearestShelter(x,z,need){
+  let best=null,bd=1e9;
+  const SH=shelterList();
+  for(const s of SH){if(s.blocked)continue;if(s.load+need>s.shelterCap)continue;const d=Math.hypot(s.x-x,s.z-z)*(s===S_AGO?.75:s===S_EUM?1.9:s.site?.9:1);if(d<bd){bd=d;best=s;}}
+  if(!best)best=SH.filter(s=>!s.blocked).sort((a,b)=>a.load/a.shelterCap-b.load/b.shelterCap)[0]||S_TEM[0];
+  return best;
+}
+function rehouse(n,x,z){while(n>0){const c=Math.min(n,25);nearestShelter(x,z,c).load+=c;n-=c;}}
+function evacuate(i){
+  if(S.evac[i])return;S.evac[i]=1;const souls=SOULS[i];S.displaced+=souls;
+  const s=nearestShelter(HX[i],HZ[i],souls);const before=s.load/s.shelterCap;s.load+=souls;const after=s.load/s.shelterCap;
+  if(!S.flags['evac_'+s.id]){S.flags['evac_'+s.id]=1;S.shUsed=(S.shUsed||0)+1;if(S.shUsed<=8)arc('evac_'+s.id,S.src||{x:HX[i],z:HZ[i]},s,'#fff1c7',.6);
+    if(!S.flags.evac){S.flags.evac=1;ev(S.tick,`Families abandon their homes — the first make for ${s.name}.`,'people',s);}
+    else if(S.shUsed<=5)ev(S.tick,`Refugees now streaming to ${s.name}${s.kind==='school'?' — its classrooms become a shelter':''}.`,'people',s);}
+  if(s===S_AGO&&!S.flags.market){S.flags.market=1;ev(S.tick,'Market stalls in the Agora are cleared to make room for families.','info',S_AGO);}
+  if(before<.7&&after>=.7&&!s.site)ev(S.tick,`${s.name} is filling up — ${Math.round(after*100)}% of its space taken.`,'warn',s);
+  if(before<1&&after>=1&&(!s.site||(S.shFull=(S.shFull||0)+1)<=3))ev(S.tick,`${s.name} is full. New arrivals are turned away.`,'bad',s);
+  if(Math.random()<.85)spawnFlow(HX[i],HZ[i],s.x,s.z,COL.people,Math.random()*1.2,S.kind==='rain'?9:14);
+}
+function sendInjured(n,x,z,label){
+  if(n<=0)return;S.injured+=n;let left=n;
+  for(const c of careList(x,z)){if(c.blocked&&c!==S_AGO)continue;const room=Math.max(0,c.care-c.careLoad);const take=c===S_AGO?left:Math.min(left,room);if(take<=0)continue;
+    const before=c.careLoad/c.care;c.careLoad+=take;left-=take;if(c===S_AGO)S.untreated+=take;
+    if(!S.flags['hurt_'+c.id]){S.flags['hurt_'+c.id]=1;if(c.site)S.hospUsed++;if(!c.site||S.hospUsed<=6)arc('hurt_'+c.id,S.src||{x,z},c,'#ff6b6b',.8);
+      if(!c.site||S.hospUsed<=3)ev(S.tick,c===S_AGO?'Every hospital and sanctuary is full — a field camp for the untreated wounded is raised in the Agora.':S.hospUsed===1&&c.site?`The first ${label||'injured'} are carried to ${c.name}.`:`Wounded now sent to the ${c.name}.`,c===S_AGO?'bad':'hurt',c);}
+    if(before<1&&c.careLoad/c.care>=1&&c!==S_AGO&&(!c.site||(++S.hospFull)<=3))ev(S.tick,`${c.name} has no beds left.`,'bad',c);
+    if(Math.random()<.7)spawnFlow(x,z,c.x,c.z,COL.hurt,Math.random(),10);
+    if(left<=0)break;}
+}
+function windF(dx,dz){const W=S.wind;if(!W||(!W.x&&!W.z))return .55;const c=dx*W.x+dz*W.z;return .3+1.25*Math.max(0,c)+.1*c;}
+function roofF(i){const h=houses[i];return(h.roofType==='hip'?.62:.95)*(h.two?1.12:1);}
+// one minute of house-to-house fire
+function fireStep(t,evacR=20){
+  for(const i of [...S.burning]){const age=t-S.bStart[i];const heat=age<1?.5:age<S.bDur[i]-2?1:.5;
+    for(const [j,ux,uz,d,road] of neigh(i)){const st=S.hs[j];if(st!==HS.ok&&st!==HS.cracked&&st!==HS.looted)continue;
+      if(hr(i*7+j,j,Math.floor(t))<TUNE.spread*heat*windF(ux,uz)*roofF(j)*(1-d/(NEIGH_R+1))*(road?TUNE.road:1)*(1-S.supp))ignite(j);}}
+  for(const i of [...S.burning]){const age=t-S.bStart[i];
+    if(age>=S.bDur[i])finishBurn(i,false);
+    else if(S.supp>.2&&hr(i,77,Math.floor(t))<S.supp*TUNE.quench)finishBurn(i,age<4);}
+  for(const i of S.burning){for(const o of nearH(HX[i],HZ[i])){const j=o.idx;if(S.evac[j]||S.hs[j]!==HS.ok)continue;if(Math.hypot(HX[j]-HX[i],HZ[j]-HZ[i])<evacR)evacuate(j);}}
+  // landmarks threatened by flames
+  for(const s of SYS){if(s.kind==='tower'||S.flags['thr_'+s.id]||(S.pf&&s===S.pf.ps))continue;
+    for(const i of S.burning){if(Math.hypot(HX[i]-s.x,HZ[i]-s.z)<(s.kind==='palace'?s.p.zone+12:30)){S.flags['thr_'+s.id]=1;raise(s,'threatened');
+      ev(t,`Flames within a bowshot of the ${s.name.replace(/^The /,'')}.`,'bad',s);break;}}}
+  if(!S.shipsOut){for(const i of S.burning){if(Math.hypot(HX[i]-SHORE.x,HZ[i]-SHORE.z)<80&&S.kind!=='attack'){S.shipsOut=performance.now();ev(t,'Embers drift over the harbor — the ships are rowed out into the bay.','warn',S_HAR);break;}}}
+}
+// a burning palace (used by the fire scenario and when raiders sack the king's hall)
+function startPalaceFire(idx,t0,arr){
+  const p=PALACES[idx];const ps=SP[idx];
+  const F={p,ps,t0,I:0,dmg:0,state:'burning',collapseT:-1,arr,oil:0,cands:[]};
+  for(let i=0;i<N;i++){const d=Math.hypot(HX[i]-p.x,HZ[i]-p.z);if(d<p.zone+34)F.cands.push([i,d,(HX[i]-p.x)/d,(HZ[i]-p.z)/d]);}
+  p.meshes.forEach(o=>{if(!o.userData.mat0){o.userData.mat0=o.material;o.material=o.material.clone();o.userData.c0=o.material.color.clone();}});
+  ps.status='burning';S.pf=F;return F;
+}
+function palaceFireTick(t){
+  const F=S.pf;if(!F||F.state!=='burning')return;const p=F.p,rel=t-F.t0;
+  F.I=clamp(rel/4,0,1)*(1-S.supp)*(1-Math.min(F.dmg,1)*.35)*(F.collapseT>=0?Math.max(0,1-(t-F.collapseT)/10):1)*(F.oil&&t-F.oil<6?1.3:1);
+  F.dmg+=F.I/(TUNE.palFuel*p.k);
+  if(F.collapseT<0&&F.dmg>=1){F.collapseT=t;F.ps.status='destroyed';
+    p.meshes.forEach(o=>{if(ROOF_MATS.includes(o.userData.mat0))o.visible=false;});
+    ev(t,`The roof beams of the megaron give way — the ${p.name} collapses.`,'bad',F.ps);sendInjured(Math.round(30*p.k),p.x,p.z);
+    if(UI.follow.checked&&!S.silent)flyTo(p.x,F.ps.y,p.z,95*p.k);}
+  if(!F.oil&&rel>=6&&F.I>.5){F.oil=t;ev(t,'Storerooms of olive oil burst — the flames leap above the palace walls.','fire',F.ps);
+    S.grainFactor=Math.min(S.grainFactor,.6);raise(S_GRAN,'alert');ev(t,'The palace stores of grain and oil are lost; the Royal Granaries must now feed the displaced.','warn',S_GRAN);arc('grain',S_GRAN,S_AGO,'#ffd166',.5);}
+  if(t>F.arr+2&&F.I<.12){F.state=F.collapseT>=0?'destroyed':'damaged';if(F.state==='damaged'){F.ps.status='damaged';ev(t,`The flames are beaten back — the ${p.name} is scorched but still stands.`,'good',F.ps);}}
+  if(F.I>.05)for(const [i,d,ux,uz] of F.cands){const st=S.hs[i];if(st!==HS.ok&&st!==HS.looted)continue;const reach=clamp(1-(d-p.zone*.7)/40,0,1);if(reach<=0)continue;
+    if(hr(i,99,t)<TUNE.ember*F.I*reach*windF(ux,uz)*roofF(i)*(1-S.supp*.8))ignite(i);}
+  if(rel>=3&&F.I>.3)for(const [i,d] of F.cands){if(!S.evac[i]&&S.hs[i]===HS.ok&&d<p.zone+14)evacuate(i);}
+}
+// shelters, healers, grain — shared bookkeeping each step
+function commonStatus(t){
+  let un=0;
+  for(const s of shelterList()){const r=s.load/Math.max(1,s.shelterCap);un+=Math.max(0,s.load-s.shelterCap);if(r>=1)raise(s,'overloaded');else if(r>=.7)raise(s,'strained');else if(r>0)raise(s,'alert');}
+  S.unsheltered=un;
+  for(const c of SYS){if(!c.care||!live(c)||!c.careLoad)continue;const r=c.careLoad/c.care;if(r>=1)raise(c,'overloaded');else if(r>=.6)raise(c,'strained');else raise(c,'alert');}
+  if(S.displaced>0){const cap=S_GRAN.cap*S.grainFactor;const gr=S.displaced/cap;
+    if(gr>=1){if(!S.flags.ration){S.flags.ration=1;ev(t,`The Royal Granaries cannot feed ${S.displaced.toLocaleString()} homeless — rationing begins.`,'bad',S_GRAN);}raise(S_GRAN,'overloaded');}
+    else if(gr>=.6)raise(S_GRAN,'strained');else raise(S_GRAN,'alert');
+    if(!S.flags.grainArc){S.flags.grainArc=1;arc('grain',S_GRAN,S_AGO,'#ffd166',.5);}}
+}
+
+// =====================================================================
+// ============================ SCENARIOS ==============================
+const WINDS={calm:{label:'Still air',x:0,z:0},boreas:{label:'Boreas — north wind',x:0,z:1},notus:{label:'Notus — south wind',x:0,z:-1},zephyrus:{label:'Zephyrus — west wind',x:1,z:0},eurus:{label:'Eurus — east wind',x:-1,z:0}};
+const mmFmt=t=>`t+${String(t).padStart(2,'0')}m`;
+const SCN={};
+
+// -------------------- 1. FIRE IN THE PALACE --------------------
+SCN.fire={title:'Fire in the Palace',go:'Set it ablaze',end:60,sec:.6,fmt:mmFmt,
+  o1:{label:'Palace',opts:PALACES.map((p,i)=>[i,p.name.replace('Palace of ','')]),def:1},
+  o2:{label:'Wind',opts:Object.entries(WINDS).map(([k,w])=>[k,w.label]),def:'boreas'},
+  kpi:['Houses ablaze','Houses lost','Homeless','Injured','Brigade','Severity'],
+  init(){const idx=+S.o1,p=PALACES[idx];S.wind=WINDS[S.o2];
+    S.arrA=Math.round(3+dist2(AGO,p)/30);S.arrH=Math.round(3+dist2(SHORE,p)/28);
+    const B=basesAlive();const [nb,nd]=nearestOf(B,p.x,p.z);S.base=nb;S.arrB=nb?Math.round(2+nd/26):99;
+    S.baseSupp=Math.min(.32,.08+.04*B.filter(b=>dist2(b,p)<80).length);S.crewBases=B.sort((a,b)=>dist2(a,p)-dist2(b,p)).slice(0,3);
+    S.arrMin=Math.min(S.arrH,S.arrB+6);
+    const F=startPalaceFire(idx,0,S.arrMin);S.src=F.ps;
+    ev(0,`Fire breaks out in the great hall of the ${p.name}.`,'fire',F.ps);
+    if(UI.follow.checked&&!(S&&S.silent))flyTo(p.x,F.ps.y,p.z,120*p.k);},
+  tick(t){const p=S.pf.p;
+    S.supp=Math.min(.95,.18*ramp(t,S.arrA,S.arrA+6)+S.baseSupp*ramp(t,S.arrB,S.arrB+8)+.42*ramp(t,S.arrH,S.arrH+16)+(S.suppBonus||0));
+    palaceFireTick(t);if(t>=3)fireStep(t);else fireStep(t,0);
+    if(t===1){sendInjured(Math.round(8*p.k),p.x,p.z);S_TOW.forEach(s=>{raise(s,'alert');arc('sig_'+s.id,S.src,s,'#ffcf6b',1.2);});
+      ev(t,'Signal fires blaze on Mount Neritos and the South Hill — the alarm runs across Ithaca.','info',S_TOW[0]);}
+    if(t===2){
+      if(+S.o1===0){SP.slice(1).forEach(s=>{raise(s,'strained');arc('cmd_'+s.id,SP[1],s,'#b28dff',.7);});ev(t,'The king\'s hall is lost as a seat of command — old Laertes takes charge of the island.','warn',SP[1]);}
+      else{raise(SP[0],'strained');arc('cmd',S.src,SP[0],'#b28dff',.7);ev(t,`Orders for the ${quarter(Math.atan2(p.x,p.z)).toLowerCase()} now come from the Palace of Odysseus, stretching its heralds thin.`,'warn',SP[0]);}
+      raise(S_HAR,'strained');arc('crew_h',S_HAR,S.src,'#5ec8ff',.5);arc('crew_a',S_AGO,S.src,'#5ec8ff',.5);raise(S_AGO,'alert');
+      ev(t,'Harbor crews form a bucket chain from the Bay of Phorcys; volunteers run from the Agora with water jars.','crew',S_HAR);}
+    if(t===S.arrA)ev(t,'Agora volunteers reach the fire and start wetting roofs downwind.','crew',S.src);
+    if(t===S.arrH)ev(t,'The harbor brigade arrives — houses are pulled down to cut firebreaks.','crew',S.src);
+    if(t===2&&S.base){S.crewBases.forEach(b=>{raise(b,'strained');arc('crew_'+b.id,b,S.src,'#5ec8ff',.4);});}
+    if(t===S.arrB&&S.base)ev(t,`Fire crews from ${S.base.name} reach the blaze${S.crewBases.length>1?`, with men from ${S.crewBases.length-1} more garrisons behind them`:''}.`,'crew',S.base);
+    commonStatus(t);
+    if(t>S.arrMin&&S.burning.size===0&&S.pf.state!=='burning')finish(t,`Fire contained at ${mmFmt(t)}. ${S.burned} houses lost, ${S.displaced.toLocaleString()} people without a roof, ${S.injured} injured.`,'good');
+    else if(t>=this.end)finish(t,`An hour on, ${S.burning.size} houses still burn — the fire will smoulder into the night.`,'bad');},
+  frame(dt,time){if(!S.done&&S.tick>=2){if(Math.random()<dt*3)spawnFlow(S_HAR.x,S_HAR.z,S.src.x,S.src.z,COL.crew,0,22);if(Math.random()<dt*2)spawnFlow(S_AGO.x,S_AGO.z,S.src.x,S.src.z,COL.crew,0,18);if(S.crewBases&&Math.random()<dt*4){const b=S.crewBases[Math.floor(Math.random()*S.crewBases.length)];spawnFlow(b.x,b.z,S.src.x,S.src.z,COL.crew,0,20);}}},
+  kpis(){return[S.burning.size,S.burned,S.displaced.toLocaleString(),S.injured,Math.round(S.supp*100)+'%'];},
+  sev(){const over=SYS.filter(s=>!s.site&&s.status==='overloaded').length;const F=S.pf;
+    return S.untreated/250*8+S.unsheltered/2500*8+S.burned/320*42+(F.collapseT>=0?20:F.state==='damaged'?8:F.dmg*10)+S.injured/500*18+over*4+S.displaced/7000*10+S.burning.size/80*6;}};
+
+// -------------------- 2. THE GREAT RAINS --------------------
+SCN.rain={title:'The Great Rains',go:'Let the rains fall',end:36,sec:1,fmt:t=>`h+${String(t).padStart(2,'0')}`,
+  o1:{label:'Season',opts:[['autumn','Autumn storms'],['winter','Winter rains']],def:'winter'},
+  o2:{label:'Intensity',opts:[['steady','Steady rain'],['storm','Storm of Zeus'],['deluge','The great deluge']],def:'storm'},
+  kpi:['Sea level','Houses flooded','Collapsed','Homeless','Grain spoiled','Severity'],
+  init(){const P={steady:[1.6,18],storm:[2.9,22],deluge:[4.1,27]}[S.o2];S.peak=P[0]*(S.o1==='winter'?1.08:1);S.rainEnd=P[1];S.level=0;S.spoil=0;S.soak=new Float32Array(N);
+    S.src={x:SHORE.x,z:SHORE.z,y:2};S.rainI=0;
+    ev(0,'Black clouds roll in from the west; the first heavy drops strike the roof tiles.','info',S_AGO);
+    if(UI.follow.checked&&!(S&&S.silent))goTo({cam:[SHORE.x+170,120,SHORE.z+150],tgt:[SHORE.x-40,0,SHORE.z-40]});},
+  tick(t){
+    S.rainI=ramp(t,0,3)*(1-ramp(t,S.rainEnd,S.rainEnd+5));
+    // sea level: rain + swell push it up; it drains once the rain stops
+    const target=S.peak*ramp(t,1,S.rainEnd-4);
+    S.level=t<=S.rainEnd?Math.max(S.level,target):Math.max(0,S.level-S.peak/9);
+    WEATHER.target=S.rainI;
+    // houses below the water line flood; soaked mudbrick slumps
+    for(let i=0;i<N;i++){const st=S.hs[i];if(HMIN[i]<S.level-.15){if(st===HS.ok)floodHouse(i);if(S.hs[i]===HS.flooded){S.soak[i]+=1;if(S.level>HMIN[i]+1&&S.soak[i]>=3&&hr(i,21,t)<.22){collapseHouse(i,true);}}}}
+    // landslides on the steep upper slopes
+    if(t>=8&&S.rainI>.6){for(let k=0;k<40;k++){const i=Math.floor(S.rnd()*N);if(SLOPE[i]>1.5&&HMIN[i]>16&&S.hs[i]===HS.ok&&S.rnd()<.12*S.rainI*(S.peak/2.9)){
+      let n=0;if(collapseHouse(i))n++;for(const [j,,,d] of neigh(i)){if(d<8&&S.rnd()<.5&&collapseHouse(j))n++;}
+      sendInjured(Math.round(n*2.5),HX[i],HZ[i]);
+      const where=quarter(Math.atan2(HX[i],HZ[i])).toLowerCase();
+      if(!S.flags.slide){S.flags.slide=1;ev(t,`A mudslide tears down the slope in the ${where} — ${n} houses buried.`,'bad',{x:HX[i],y:HY[i],z:HZ[i]});}
+      else if(S.rnd()<.5)ev(t,`Another hillside gives way in the ${where}.`,'bad',{x:HX[i],y:HY[i],z:HZ[i]});}}}
+    // grain spoilage
+    S.spoil=clamp(S.spoil+(S.rainI*(S.peak/2.9)*.018+(S.level>S_GRAN.y-2?.05:0))*(S.grainSafe?.35:1),0,.85);S.grainFactor=1-S.spoil;
+    if(S.spoil>.15&&!S.flags.spoil){S.flags.spoil=1;raise(S_GRAN,'strained');ev(t,`Damp seeps into the Royal Granaries — ${Math.round(S.spoil*100)}% of the grain is spoiling.`,'warn',S_GRAN);}
+    if(S.spoil>.4&&!S.flags.spoil2){S.flags.spoil2=1;raise(S_GRAN,'overloaded');ev(t,'Half the island\'s grain is rotting in the silos. Hunger will follow the flood.','bad',S_GRAN);}
+    // system effects
+    if(t===2){raise(S_HAR,'alert');ev(t,'Fishing boats are dragged up the beach; the harbor master doubles the mooring lines.','info',S_HAR);}
+    if(t===4){ev(t,'Streets turn to rivers of mud — carts and runners slow to a crawl.','warn',S_AGO);SP.forEach(s=>raise(s,'alert'));}
+    if(S.level>1.2&&!S.flags.h1){S.flags.h1=1;raise(S_HAR,'strained');ev(t,'Waves surge over the stone mole of the harbor.','warn',S_HAR);}
+    if(S.level>2.2&&!S.flags.h2){S.flags.h2=1;raise(S_HAR,'overloaded');S.shipsTorn=performance.now();ev(t,'The ship sheds are flooded and boats are torn from their moorings.','bad',S_HAR);}
+    if(S.level>3.4&&!S.flags.h3){S.flags.h3=1;S_HAR.status='destroyed';ev(t,'The harbor is gone beneath the sea — no ship can sail for Same or Zacynthus.','bad',S_HAR);}
+    if(t===10&&S.rainI>.6){S_TOW.forEach(s=>raise(s,'damaged'));ev(t,'Rain drowns the beacon fires on Neritos — Ithaca cannot signal its neighbours for help.','warn',S_TOW[0]);}
+    if(t===6&&S.peak>2){raise(SP[0],'strained');arc('cmd',SP[0],S_HAR,'#b28dff',.7);ev(t,'From the Palace of Odysseus, heralds order the low quarters emptied.','warn',SP[0]);}
+    let siteWet=0;
+    for(const s of SYS){if(s.kind==='tower'||!live(s))continue;const wet=S.level>s.y-.4;if(wet&&!S.flags['fl_'+s.id]){S.flags['fl_'+s.id]=1;s.blocked=s.kind!=='palace';raise(s,s.kind==='harbor'?'overloaded':'flooded');
+      if(s.site){siteWet++;if(s.load>0){const moved=s.load;s.load=0;rehouse(moved,s.x,s.z);}if(s.careLoad>0){const moved=s.careLoad;s.careLoad=0;sendInjured(moved,s.x,s.z);S.injured-=moved;}continue;}
+      ev(t,`Water stands knee-deep in ${s.name}${s.kind==='shelter'?' — the families sheltering there must move again':''}.`,'bad',s);
+      if(s.kind==='shelter'&&s.load>0){const moved=s.load;s.load=0;const alt=nearestShelter(s.x,s.z,25);rehouse(moved,s.x,s.z);arc('mv_'+s.id,s,alt,'#fff1c7',.6);}}}
+    if(siteWet){const names=SITE_SYS.filter(o=>S.flags['fl_'+o.id]);ev(t,`Floodwater pours into ${siteWet===1?names[names.length-1].name:siteWet+' schools, hospitals and garrisons in the low quarters'} — patients and families are moved uphill.`,'bad',names[names.length-1]);}
+    // fever in crowded shelters
+    if(t>=16&&S.displaced>700&&t%2===0){const sick=Math.round(S.displaced*.008*(S.peak/2.9));if(!S.flags.fever){S.flags.fever=1;ev(t,'Stagnant water and crowded shelters — fever spreads among the homeless.','hurt',S_TEM[2]);}sendInjured(sick,S_AGO.x,S_AGO.z,'sick');}
+    commonStatus(t);
+    if(t>S.rainEnd+4&&S.level<=.05&&!S.done)finish(t,`The waters recede at ${this.fmt(t)}. ${S.flooded} houses flooded, ${S.collapsed} collapsed, ${S.displaced.toLocaleString()} homeless, ${Math.round(S.spoil*100)}% of the grain ruined.`,'good');
+    else if(t>=this.end)finish(t,`After ${this.end} hours, ${S.flooded} houses stand in water and ${S.collapsed} have collapsed. ${Math.round(S.spoil*100)}% of the grain is ruined.`,'bad');},
+  frame(dt){},
+  kpis(){return['+'+S.level.toFixed(1)+' m',S.flooded,S.collapsed,S.displaced.toLocaleString(),Math.round(S.spoil*100)+'%'];},
+  sev(){const over=SYS.filter(s=>!s.site&&(s.status==='overloaded'||s.status==='flooded'||s.status==='destroyed')).length;
+    return S.untreated/250*8+S.unsheltered/2500*8+S.flooded/350*22+S.collapsed/120*25+S.displaced/7000*14+S.spoil*22+S.injured/400*10+over*3;}};
+
+// -------------------- 3. RAIDERS FROM THE SEA --------------------
+const TAPHIAN_SAIL=(()=>{const cv=document.createElement('canvas');cv.width=cv.height=64;const c=cv.getContext('2d');c.fillStyle='#1a1414';c.fillRect(0,0,64,64);c.fillStyle='#9b1c1c';for(let i=0;i<64;i+=16)c.fillRect(0,i,64,6);return new THREE.MeshStandardMaterial({map:new THREE.CanvasTexture(cv),side:THREE.DoubleSide,roughness:1});})();
+const ENEMY=[];
+const LAND={x:SHORE.x-bayDir.x*6,z:SHORE.z-bayDir.y*6};
+const KINGGATE=(()=>{const a=Math.atan2(AGO.x,AGO.z);return{x:Math.sin(a)*52,z:Math.cos(a)*52};})();
+const FRONT_PATH=[LAND,{x:AGO.x,z:AGO.z},KINGGATE];
+const frontPos=s=>{s=clamp(s,0,2);const k=Math.min(1,Math.floor(s)),u=s-k,a=FRONT_PATH[k],b=FRONT_PATH[k+1];return{x:lerp(a.x,b.x,u),z:lerp(a.z,b.z,u)};};
+const frontDir=s=>{const k=Math.min(1,Math.floor(clamp(s,0,1.999))),a=FRONT_PATH[k],b=FRONT_PATH[k+1],l=Math.hypot(b.x-a.x,b.z-a.z);return{x:(b.x-a.x)/l,z:(b.z-a.z)/l};};
+SCN.attack={title:'Raiders from the Sea',go:'Sails on the horizon!',end:90,sec:.5,fmt:mmFmt,
+  o1:{label:'Ithaca\'s readiness',opts:[['asleep','Caught asleep'],['watchful','Watchful'],['ready','Battle-ready']],def:'watchful'},
+  o2:{label:'Raiders',opts:[['party','Raiding party · 6 ships'],['fleet','Taphian fleet · 12 ships'],['invasion','Great invasion · 20 ships']],def:'fleet'},
+  kpi:['Raiders','Defenders','Houses burned','Plundered','Wounded','Severity'],
+  init(){const F={party:[300,6],fleet:[700,12],invasion:[1300,20]}[S.o2];const R={asleep:[.55,9],watchful:[.85,5],ready:[1.2,2]}[S.o1];
+    S.R0=S.R=F[0];S.nShips=F[1];S.mult=R[0];S.muster=R[1];S.landT=10;S.front=0;S.Dlost=0;S.Darr=0;S.raidOver=false;S.sackT=-1;S.held=0;S.wind=WINDS.eurus;
+    S.src=S_HAR;S.arrH=999;
+    // the enemy fleet
+    for(let k=0;k<S.nShips;k++){const g=mkShip(true);g.traverse(o=>{if(o.isMesh&&o.material.map)o.material=TAPHIAN_SAIL;});
+      const row=Math.floor(k/5),col=(k%5)-2;
+      g.userData.from=new THREE.Vector3(SHORE.x+bayDir.x*(330+row*24)+shoreT.x*col*15,0,SHORE.z+bayDir.y*(330+row*24)+shoreT.y*col*15);
+      g.userData.to=new THREE.Vector3(SHORE.x+bayDir.x*(16+row*10)+shoreT.x*col*8.5,0,SHORE.z+bayDir.y*(16+row*10)+shoreT.y*col*8.5);
+      g.position.copy(g.userData.from);g.rotation.y=Math.atan2(-bayDir.x,-bayDir.y);g.userData.ph=Math.random()*6;scene.add(g);ENEMY.push(g);}
+    ev(0,`A lookout on the South Hill sees ${S.nShips} black ships with red-striped sails — Taphian raiders!`,'bad',S_TOW[1]);
+    if(UI.follow.checked&&!(S&&S.silent))goTo({cam:[SHORE.x+bayDir.x*160+90,110,SHORE.z+bayDir.y*160+60],tgt:[SHORE.x+bayDir.x*40,0,SHORE.z+bayDir.y*40]});},
+  defendersArrived(t){let d=0;const fp=frontPos(S.front);SP.concat(SITE_SYS.filter(o=>o.kind==='base'&&live(o))).forEach(s=>{if(s.status==='destroyed'&&!s.site)return;const at=S.muster+dist2(s,fp)/22;d+=s.garrison*S.mult*ramp(t,at,at+4);});
+    if(t>=50)d+=250*ramp(t,50,56);if(S.levy)d+=S.levy*ramp(t,S.levyT+1,S.levyT+4);return d;},
+  tick(t){
+    const fp=frontPos(S.front);S.src={x:fp.x,z:fp.z,y:H(fp.x,fp.z)};
+    if(t===1){S_TOW.forEach(s=>{raise(s,'alert');arc('sig_'+s.id,S_TOW[1],s.id==='tow1'?SP[0]:s,'#ffcf6b',1.2);});ev(t,'Beacons blaze across the island; horns sound in every quarter.','info',S_TOW[0]);}
+    if(t===S.muster){SP.forEach(s=>{raise(s,'alert');arc('arm_'+s.id,s,S_AGO,'#7cc4ff',.5);});raise(SP[0],'strained');const nb=basesAlive();nb.forEach(b=>raise(b,'strained'));
+      ev(t,`The palace guards and ${nb.length} garrisons arm and march to meet the raiders — ${Math.round((PAL_G.reduce((a,b)=>a+b,0)+nb.reduce((a,b)=>a+b.garrison,0))*S.mult)} spears in all.`,'crew',SP[0]);}
+    if(t===3){raise(S_HAR,'threatened');ev(t,'Fishermen and families flee the harbor quarter toward the temples on the hill.','people',S_HAR);
+      for(let i=0;i<N;i++)if(dist2({x:HX[i],z:HZ[i]},SHORE)<70)evacuate(i);}
+    // fire arrows before the landing
+    if(t>=6&&t<S.landT+3){for(let k=0;k<6;k++){const i=Math.floor(S.rnd()*N);if(dist2({x:HX[i],z:HZ[i]},SHORE)<90&&S.rnd()<.35){ignite(i);S.arrows=(S.arrows||[]).concat([[i,performance.now()]]);}}
+      if(t===6)ev(t,'Fire arrows arc over the water and fall on the harbor roofs.','fire',S_HAR);}
+    if(t===S.landT){S_HAR.status='occupied';S_HAR.blocked=true;ev(t,'The raiders beach their ships and storm the harbor.','bad',S_HAR);if(UI.follow.checked&&!(S&&S.silent))flyTo(SHORE.x,4,SHORE.z,140);
+      ships.forEach((s,k)=>{if(k%2===0){s.userData.burn=performance.now()+k*400;}});}
+    if(t===S.landT+3)ev(t,'Our own ships are set ablaze at their moorings.','fire',S_HAR);
+    // the battle
+    if(t>=S.landT&&!S.raidOver){
+      const Dtot=this.defendersArrived(t);const D=Math.max(0,Dtot-S.Dlost);S.D=D;
+      const fighting=D>5;
+      if(fighting){const lR=D*.031*S.mult,lD=S.R*.0115;S.R=Math.max(0,S.R-lR);S.Dlost+=lD;sendInjured(Math.round(lD*.55),fp.x,fp.z,'wounded fighters');
+        if(!S.flags.clash){S.flags.clash=1;ev(t,`Shields clash ${S.front<.6?'among the ship sheds':S.front<1.3?'in the streets below the Agora':'beneath the walls of the king\'s hall'} — ${Math.round(D)} men of Ithaca against ${Math.round(S.R)} raiders.`,'bad',S.src);}}
+      const adv=(S.R-D*1.1)/Math.max(S.R,1);S.front=clamp(S.front+clamp(adv,-.1,.08)*(fighting?1:.9),0,2);
+      // raider zone: plunder, torch, terrify
+      for(const o of nearH(fp.x,fp.z).concat(nearH(fp.x+12,fp.z),nearH(fp.x-12,fp.z),nearH(fp.x,fp.z+12),nearH(fp.x,fp.z-12))){const j=o.idx;const d=dist2({x:HX[j],z:HZ[j]},fp);
+        if(d<36&&!S.evac[j]&&S.hs[j]===HS.ok)evacuate(j);
+        if(d<24&&adv>-.2&&S.hs[j]===HS.ok){const u=hr(j,17,t);if(u<.22){lootHouse(j);if(hr(j,18,t)<.2)sendInjured(1+Math.floor(hr(j,19,t)*2),HX[j],HZ[j]);}else if(u<.245)ignite(j);}}
+      for(const b of SITE_SYS){if(b.kind!=='base'||!live(b)||b.overrun)continue;if(dist2(b,fp)<28&&adv>0){b.overrun=true;b.status='destroyed';S.Dlost+=b.garrison*S.mult*.6;S.ovr=(S.ovr||0)+1;if(S.ovr<=2)ev(t,`${b.name} is overrun — its men cut down at their posts.`,'bad',b);}}
+      for(const o of SITE_SYS){if(o.kind==='base'||!live(o)||S.flags['occ_'+o.id])continue;if(dist2(o,fp)<26&&adv>0){S.flags['occ_'+o.id]=1;o.status='occupied';o.blocked=true;if(o.load){const m=o.load;o.load=0;rehouse(m,o.x,o.z);}}}
+      if(S.looted>10&&!S.flags.loot){S.flags.loot=1;ev(t,'Raiders break down doors and drag out bronze, wine and cloth.','bad',S.src);}
+      // landmarks along the way
+      for(const s of [S_TEM[1],S_AGO,SP[0]]){const d=dist2(s,fp);
+        if(d<70&&!S.flags['near_'+s.id]){S.flags['near_'+s.id]=1;raise(s,'threatened');s.blocked=s.kind==='shelter';if(s.load){const moved=s.load;s.load=0;const alt=nearestShelter(s.x,s.z,25);rehouse(moved,s.x,s.z);arc('mv_'+s.id,s,alt,'#fff1c7',.6);}ev(t,`The fighting reaches the ${s.name.replace(/^The /,'')}${s.kind==='shelter'?' — the families sheltering there flee further inland':''}.`,'warn',s);}
+        if(d<34&&adv>0&&s!==SP[0]&&!S.flags['sack_'+s.id]){S.flags['sack_'+s.id]=1;s.status='destroyed';ev(t,s===S_TEM[1]?'The Temple of Poseidon is sacked — its bronze tripods carried off to the ships.':'Battle rages through the Agora; the market stalls burn.','bad',s);
+          for(let k=0;k<3;k++){const o=nearH(s.x+(S.rnd()-.5)*30,s.z+(S.rnd()-.5)*30);if(o.length)ignite(o[Math.floor(S.rnd()*o.length)].idx);}}}
+      if(S.front>=1.9&&adv>0){S.held++;raise(SP[0],'threatened');if(!S.flags.siege){S.flags.siege=1;ev(t,'The raiders hammer at the gates of the Palace of Odysseus.','bad',SP[0]);if(UI.follow.checked&&!(S&&S.silent))flyTo(0,SP[0].y,0,150);}
+        if(S.held>=6&&S.sackT<0&&S.R>D*1.25){S.sackT=t;SP[0].garrison=0;startPalaceFire(0,t,t+14);S.arrH=t+14;ev(t,'The gates give way — the king\'s hall is sacked and set on fire!','fire',SP[0]);}}
+      if(t===50)ev(t,'Answering the beacons, the men of Same land at the north cove and march to help.','good',SP[2]);
+      // raiders break
+      const loaded=(S.sackT>=0&&t>=S.sackT+10)||t>=72;
+      if(S.R<S.R0*.28||(S.front<=0&&adv<0&&t>S.landT+6)||loaded){S.raidOver=t;fadeArcs('arm_');
+        ev(t,S.sackT>=0||(loaded&&S.R>=S.R0*.28)?'Laden with plunder, the raiders fall back to their ships and row away.':'Broken, the raiders run for their ships — Ithaca holds!',S.sackT>=0?'warn':'good',S_HAR);if(S_HAR.status==='occupied')S_HAR.status='damaged';
+        if(UI.follow.checked&&!(S&&S.silent))flyTo(SHORE.x,4,SHORE.z,170);}}
+    if(t>=S.landT&&S.R>0&&!S.raidOver){raise(S_GRAN,'strained');if(!S.flags.block){S.flags.block=1;ev(t,'With the harbor in enemy hands, no grain ship can come in.','warn',S_GRAN);S.grainFactor=.7;}}
+    // after the battle the people fight the fires
+    S.supp=Math.min(.95,(S.raidOver?.75*ramp(t,S.raidOver,S.raidOver+12):.12)+(S.suppBonus||0));
+    if(S.pf)palaceFireTick(t);
+    fireStep(t,14);
+    commonStatus(t);
+    if(S.raidOver&&S.burning.size===0&&(!S.pf||S.pf.state!=='burning')&&!S.done)finish(t,`${S.sackT>=0?'The raiders sacked the king\'s hall.':'The raid is beaten off.'} ${S.burned} houses burned, ${S.looted} plundered, ${S.injured} wounded.`,S.sackT>=0?'bad':'good');
+    else if(t>=this.end&&!S.done)finish(t,S.raidOver?`The raiders are gone, but ${S.burning.size} ${S.burning.size===1?'house still burns':'houses still burn'}.`:`After an hour and a half of fighting, raiders still hold part of the city.`,'bad');},
+  frame(dt,time){
+    const u=clamp(S.t/S.landT,0,1),e=1-Math.pow(1-u,2);
+    const back=S.raidOver?clamp((S.t-S.raidOver)/12,0,1):0;
+    ENEMY.forEach((g,k)=>{const a=g.userData.from,b=g.userData.to;const w=back?back*back:0;const p=back?b.clone().lerp(a,w):a.clone().lerp(b,e);
+      g.position.set(p.x,.15+WL+Math.sin(time*1.1+g.userData.ph)*.12,p.z);g.rotation.y=Math.atan2(-bayDir.x,-bayDir.y)+(back?Math.PI:0);
+      if(S.t>3&&S.t<S.landT+3&&Math.random()<dt*2.5){const tx=SHORE.x-bayDir.x*(10+Math.random()*60)+shoreT.x*(Math.random()-.5)*80,tz=SHORE.z-bayDir.y*(10+Math.random()*60)+shoreT.y*(Math.random()-.5)*80;const T=1.8;
+        FIRE.emit(g.position.x,6,g.position.z,(tx-g.position.x)/T,(H(tx,tz)+2-6)/T+20*T,(tz-g.position.z)/T,T,1.4,1.1,1,.7,.25,3);}});
+    // our burning ships
+    ships.forEach(s=>{if(s.userData.burn&&performance.now()>s.userData.burn){const age=(performance.now()-s.userData.burn)/1000;s.userData.sink=Math.min(2.6,age*.12);s.userData.tilt=Math.min(.35,age*.02);
+      if(age<22&&Math.random()<dt*14)FIRE.emit(s.position.x+(Math.random()-.5)*2,s.position.y+1+Math.random()*3,s.position.z+(Math.random()-.5)*6,0,3+Math.random()*3,0,.8,2.5,.6,1,.55,.12,0);
+      if(age<30&&Math.random()<dt*3){const g=.25;SMOKE.emit(s.position.x,s.position.y+4,s.position.z,2,5,1,8,4,18,g,g,g,1);}}});
+    // the two armies at the front
+    const showR=S.t>=S.landT&&!(S.raidOver&&S.t-S.raidOver>8),fp=frontPos(S.front),fd=frontDir(S.front);
+    const nR=showR?Math.min(ARMY_MAX/2,Math.round((S.raidOver?S.R*(1-clamp((S.t-S.raidOver)/8,0,1)):S.R)/4)):0,nD=S.t>=S.landT?Math.min(ARMY_MAX/2,Math.round((S.D||0)/3)):0;
+    for(let i=0;i<ARMY_MAX;i++){const red=i<ARMY_MAX/2,k=red?i:i-ARMY_MAX/2;const on=red?k<nR:k<nD;if(!on){AA[i]=0;continue;}
+      const [ox,oz,ph]=armyOff[i];const side=red?-1:1;const back2=S.raidOver&&red?clamp((S.t-S.raidOver)/8,0,1):0;
+      let cx=fp.x+fd.x*side*11+ox*14+Math.sin(time*2+ph)*.8,cz=fp.z+fd.z*side*11+oz*14+Math.cos(time*1.7+ph)*.8;
+      if(back2){cx=lerp(cx,LAND.x,back2);cz=lerp(cz,LAND.z,back2);}
+      AP[i*3]=cx;AP[i*3+1]=Math.max(H(cx,cz),.4)+1.3;AP[i*3+2]=cz;AA[i]=.95;}
+    armyG.attributes.position.needsUpdate=armyG.attributes.aAlpha.needsUpdate=true;
+    if(S.D>5&&showR&&!S.raidOver&&Math.random()<dt*25)FIRE.emit(fp.x+(Math.random()-.5)*14,H(fp.x,fp.z)+2,fp.z+(Math.random()-.5)*14,(Math.random()-.5)*6,4+Math.random()*4,(Math.random()-.5)*6,.35,.9,.2,1,.9,.6,2);
+    if(!S.done&&S.t>=S.muster&&S.t<S.landT+20&&Math.random()<dt*3){const s=SP[Math.floor(Math.random()*5)];spawnFlow(s.x,s.z,fp.x,fp.z,COL.guard,0,20);}},
+  kpis(){return[Math.round(S.t<S.landT?S.R0:S.R),Math.round(S.D||0),S.burned+S.burning.size,S.looted,S.injured];},
+  sev(){const over=SYS.filter(s=>!s.site&&['overloaded','destroyed','occupied'].includes(s.status)).length;
+    return S.untreated/250*8+S.unsheltered/2500*8+S.burned/200*25+S.looted/250*15+S.injured/400*20+(S.sackT>=0?25:0)+over*3+S.displaced/7000*10+(S.raidOver?0:8);}};
+
+// -------------------- 4. POSEIDON THE EARTH-SHAKER --------------------
+SCN.quake={title:'Poseidon the Earth-Shaker',go:'Shake the earth',end:60,sec:.6,fmt:mmFmt,
+  o1:{label:'Epicenter',opts:[['city','Beneath the city'],['neritos','Under Mount Neritos'],['sea','Under the sea (tsunami)']],def:'sea'},
+  o2:{label:'Magnitude',opts:[['moderate','Moderate · 6.0'],['strong','Strong · 6.8'],['great','Great · 7.3 (as in 1953)']],def:'strong'},
+  kpi:['Collapsed','Damaged','Trapped','Homeless','Injured','Severity'],
+  init(){S.mag={moderate:.5,strong:.7,great:.95}[S.o2];
+    S.epi=S.o1==='city'?{x:25,z:40}:S.o1==='neritos'?{x:NER.x,z:NER.z}:{x:SHORE.x+bayDir.x*230,z:SHORE.z+bayDir.y*230};S.epi.y=Math.max(H(S.epi.x,S.epi.z),0);
+    S.src=S.epi;S.trapped=0;S.rescued=0;S.wind=WINDS.calm;S.level=0;S.tsu=S.o1==='sea'&&S.mag>=.68;
+    if(UI.follow.checked&&!(S&&S.silent))goTo({cam:[60+260,240,60+280],tgt:[30,0,30]});
+    this.shock(0,1);},
+  intensity(x,z){return S.mag*Math.max(0,1.2-Math.hypot(x-S.epi.x,z-S.epi.z)/430);},
+  shock(t,scale){
+    SHAKE.amp=(scale>=1?4:1.8)*S.mag;SHAKE.t=scale>=1?7:3.5;
+    // the city's great buildings
+    for(const s of SYS){const I=this.intensity(s.x,s.z)*scale;
+      if(s.kind==='palace'){if(I>.82&&s.status!=='destroyed'){s.status='destroyed';s.p.meshes.forEach(o=>{if(ROOF_MATS.includes(o.material))o.visible=false;});sendInjured(Math.round(20*s.p.k),s.x,s.z);ev(t,`The ${s.name} crumbles — its megaron roof crashes down.`,'bad',s);}
+        else if(I>.55)raise(s,'damaged');}
+      else if(s.kind==='shelter'&&s!==S_AGO){if(I>.85&&s.status!=='destroyed'){s.status='destroyed';s.blocked=true;ev(t,`Columns of the ${s.name} topple — the sanctuary cannot shelter anyone.`,'bad',s);}else if(I>.6)raise(s,'damaged');}
+      else if(s.kind==='granary'&&I>.62){raise(s,'damaged');S.grainFactor=Math.min(S.grainFactor,.65);if(!S.flags.silo){S.flags.silo=1;ev(t,'Granary silos crack and spill their grain into the mud.','warn',s);}}
+      else if(s.kind==='harbor'&&I>.55){raise(s,'damaged');if(!S.flags.mole){S.flags.mole=1;ev(t,'The stone mole of the harbor splits in two.','warn',s);}}
+      else if(s.kind==='tower'&&I>.7&&s.status!=='destroyed'){s.status='destroyed';ev(t,`The ${s.name} tower falls — no signal can be sent.`,'bad',s);}
+      else if(s.site&&live(s)&&s.status!=='destroyed'){if(I>.8){s.status='destroyed';s.blocked=true;s.site.roofs.forEach(o=>o.visible=false);if(s.care)s.care=0;if(s.shelterCap)s.shelterCap=0;S.siteLost=(S.siteLost||0)+1;}
+        else if(I>.6){raise(s,'damaged');if(s.care)s.care=Math.round(s.care0*.5);if(s.shelterCap)s.shelterCap=Math.round(s.cap0*.5);}
+        if(s.load>s.shelterCap){const m=s.load-s.shelterCap;s.load=s.shelterCap;rehouse(m,s.x,s.z);}}}
+    let col=0,cr=0,hurt=0,trap=0;
+    for(let i=0;i<N;i++){const st=S.hs[i];if(st!==HS.ok&&st!==HS.cracked)continue;const h=houses[i];
+      const I=this.intensity(HX[i],HZ[i])*scale*(h.two?1.25:1)*(1+Math.min(1,SLOPE[i]/2.6)*.3)*(st===HS.cracked?1.6:1);
+      const pc=clamp((I-.55)*.9,0,.8),pd=clamp((I-.3)*1.15,0,.95);const r=hr(i,11,Math.round(scale*100));
+      if(r<pc){if(collapseHouse(i,Math.random()<.6)){col++;const s=SOULS[i];const tr=Math.round(s*.45);trap+=tr;hurt+=Math.round(s*.2);}}
+      else if(r<pd&&st===HS.ok){if(crackHouse(i)){cr++;hurt+=S.rnd()<.25?1:0;}}}
+    S.trapped+=trap;sendInjured(hurt,S.epi.x,S.epi.z);
+    if(S.siteLost&&!S.flags['sl'+scale]){S.flags['sl'+scale]=1;ev(t,`${S.siteLost} schools, hospitals and garrisons lie in ruins.`,'bad',S.epi);}
+    return[col,cr];},
+  tick(t){
+    if(t===0){ev(0,`The ground heaves and roars — ${S.collapsed} houses fall in the first shock, ${S.cracked} more are cracked.`,'bad',S.epi);
+      if(S.trapped)ev(0,`${S.trapped} people are trapped beneath the rubble.`,'hurt',S.epi);}
+    if(t>=1&&t<=5)for(let i=0;i<N;i++){if(S.hs[i]===HS.collapsed&&hr(i,13,t)<.005)ignite(i);}
+    if(t===2&&S.burning.size)ev(t,'Overturned hearths and lamps set the ruins alight.','fire',S.epi);
+    if(t===2){SP.forEach(s=>{if(s.status!=='destroyed')raise(s,'strained');});basesAlive().forEach(b=>raise(b,'strained'));ev(t,`Every palace and ${basesAlive().length} garrisons send their men into the streets to dig for survivors.`,'crew',SP[0]);
+      SP.forEach(s=>{if(s.status!=='destroyed')arc('dig_'+s.id,s,S.epi,'#5ec8ff',.5);});}
+    if(t===4)ev(t,'The springs run muddy — water must be carried down from the Fountain of Arethusa.','warn',S_AGO);
+    if(t===3&&S.cracked>50)ev(t,'Families whose walls are cracked sleep in the open, too frightened to go back inside.','people',S_AGO);
+    // tsunami
+    if(S.tsu){const peak=2.1*S.mag/.7;
+      if(t===5){S.level=-1.4;ev(t,'The sea draws back from the harbor, leaving boats on the mud — a wave is coming!','bad',S_HAR);S.shipsOut=performance.now();}
+      else if(t>=8&&t<=11)S.level=peak*(t-7)/4*1.1;else if(t>11)S.level=Math.max(0,S.level-peak/7);
+      if(t===8){ev(t,'A wall of water sweeps into the Bay of Phorcys.','bad',S_HAR);S_HAR.status='destroyed';S.shipsTorn=performance.now();if(UI.follow.checked&&!(S&&S.silent))flyTo(SHORE.x,4,SHORE.z,180);}
+      if(t>=8&&S.level>0)for(let i=0;i<N;i++){if(HMIN[i]<S.level-.1&&(S.hs[i]===HS.ok||S.hs[i]===HS.cracked)){floodHouse(i);if(S.level>HMIN[i]+1&&S.rnd()<.35)collapseHouse(i);}}}
+    // aftershocks
+    if(t===14||t===33){const [c]=this.shock(t,t===14?.5:.38);ev(t,`Aftershock! ${c} weakened houses come down.`,'bad',S.epi);}
+    // rescue from the rubble
+    const nb=basesAlive().length;const crews=1.5+nb*.22+nb*1.15*ramp(t,3,18);const out=Math.min(S.trapped,Math.round(crews*(S.rescueMult||1)*(1+S.rnd())));
+    if(out>0){S.trapped-=out;S.rescued+=out;sendInjured(Math.round(out*(S.rescueMult?.36:.55)),S.epi.x,S.epi.z,'pulled from the rubble');}
+    if(S.rescued>0&&!S.flags.resc){S.flags.resc=1;ev(t,'Neighbours pull the first survivors from the rubble.','good',S.epi);}
+    S.supp=Math.min(.95,.2+.55*ramp(t,8,24)+(S.suppBonus||0));
+    fireStep(t,12);
+    commonStatus(t);
+    if(t>=40&&S.trapped===0&&S.burning.size===0&&S.level<=.05&&!S.done)finish(t,`The shaking is over. ${S.collapsed} houses collapsed, ${S.cracked} cracked, ${S.rescued} pulled alive from the rubble, ${S.injured} injured.`,'good');
+    else if(t>=this.end&&!S.done)finish(t,`An hour after the quake, ${S.trapped} people are still buried${S.burning.size?` and ${S.burning.size} ruins burn`:''}.`,'bad');},
+  frame(dt){if(!S.done&&S.tick>=2&&Math.random()<dt*3){const s=SP[Math.floor(Math.random()*5)];if(s.status!=='destroyed')spawnFlow(s.x,s.z,S.epi.x+(Math.random()-.5)*120,S.epi.z+(Math.random()-.5)*120,COL.crew,0,20);}},
+  kpis(){return[S.collapsed,S.cracked,S.trapped,S.displaced.toLocaleString(),S.injured];},
+  sev(){const over=SYS.filter(s=>!s.site&&['overloaded','destroyed'].includes(s.status)).length;
+    return S.untreated/250*8+S.unsheltered/2500*8+S.collapsed/500*45+S.cracked/1000*10+S.injured/800*20+S.trapped/150*10+S.burned/150*10+over*3+S.flooded/200*8;}};
+
+// =====================================================================
+// ===================== run / reset / events / UI =====================
+let S_SPEED=1,CUR='fire';
+function sev(){return S?Math.round(clamp(SCN[S.kind].sev(),0,100)):0;}
+function newSim(kind,o1,o2,silent){
+  resetCity(true);
+  S=newState(kind,o1,o2);S.silent=!!silent;
+  if(!silent){document.getElementById('feed').innerHTML='';document.body.classList.add('sim-on');lastRun=null;UI.save.classList.add('hidden');}
+  const fol=UI.follow.checked;if(silent)UI.follow.checked=false;
+  SCN[kind].init();if(silent)UI.follow.checked=fol;else{UI.pause.textContent='Pause';UI.phase.textContent='Under way';}
+  if(S.src&&!S.src.y)S.src.y=H(S.src.x,S.src.z);
+  tick(0);
+}
+function tick(m){S.tick=m;SCN[S.kind].tick(m);if(S.ivs)for(const v of S.ivs)if(!v.done&&v.tick===m){applyIv(v.id);v.done=true;}S.maxSev=Math.max(S.maxSev,sev());if(!S.silent)S.curve.push({t:m,sev:sev()});}
+function finish(t,text,kind){S.done=true;S.playing=false;ev(t,text,kind,S.src);if(S.silent)return;UI.pause.textContent='Done';UI.phase.textContent=kind==='good'?'Over':'Aftermath';
+  lastRun=runSummary(t,text,kind);
+  postToParent('finish',lastRun);
+  UI.save.classList.remove('hidden');UI.save.disabled=false;UI.save.textContent='Save to history';
+  setTimeout(()=>{if(S&&S.done){fadeArcs('crew');fadeArcs('dig');}},1500);}
+// --- bridge to the CityPulse dashboard (this page opens in its own tab; the dashboard
+// that opened it listens for these via window.opener, so it can mirror live insights
+// without this page ever talking to the database itself). ---
+function postToParent(type,data){
+  try{
+    const target=window.opener||(window.parent!==window?window.parent:null);
+    if(target)target.postMessage(Object.assign({source:'citysim',type},data),location.origin);
+  }catch(e){}
+}
+function runSummary(t,text,kind){
+  const sc=SCN[S.kind];
+  const findLabel=(opt,val)=>{const o=opt.opts.find(o=>String(o[0])===String(val));return o?o[1]:String(val);};
+  const kpiValues=sc.kpis().concat([sev()]);
+  return{scenario:S.kind,scenarioTitle:sc.title,
+    options:{o1:S.o1,o1Label:findLabel(sc.o1,S.o1),o2:S.o2,o2Label:findLabel(sc.o2,S.o2)},
+    outcome:kind,outcomeText:text,durationSimMinutes:t,severity:sev(),maxSeverity:S.maxSev,
+    kpis:sc.kpi.map((label,i)=>({label,value:kpiValues[i]})),
+    curve:S.curve,events:S.events,startedAt:S.startedAt,endedAt:new Date().toISOString()};
+}
+let lastRun=null;
+function saveRun(){
+  if(!lastRun)return;
+  UI.save.disabled=true;UI.save.textContent='Saving…';
+  fetch('/api/simulator-history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lastRun)})
+    .then(r=>{if(!r.ok)throw new Error();return r.json();})
+    .then((res)=>{UI.save.textContent='✔ Saved to history';ev(lastRun.durationSimMinutes,'Run saved to simulation history.','good',null);
+      postToParent('saved',Object.assign({},lastRun,{runId:res.runId}));})
+    .catch(()=>{UI.save.disabled=false;UI.save.textContent='Save to history';ev(lastRun.durationSimMinutes,'Could not reach the database — this run was not saved.','warn',null);
+      postToParent('saveFailed',lastRun);});
+}
+document.getElementById('simSave').onclick=saveRun;
+let lastLivePost=0;
+function postLiveToParent(){
+  if(!S||S.silent)return;
+  const now=performance.now();if(now-lastLivePost<400)return;lastLivePost=now;
+  const sc=SCN[S.kind];
+  try{
+    postToParent('tick',{scenario:S.kind,scenarioTitle:sc.title,clock:UI.clock.textContent,phase:UI.phase.textContent,
+      playing:!!S.playing,done:!!S.done,severity:sev(),
+      kpis:sc.kpi.map((label,i)=>({label,value:sc.kpis().concat([sev()])[i]}))});
+  }catch(e){}
+}
+const EV_STYLE={fire:['#ff7a45','▲'],bad:['#f87171','●'],warn:['#fbbf24','●'],info:['#e8c48a','◆'],crew:['#5ec8ff','◆'],people:['#fff1c7','◆'],hurt:['#ff8a8a','✚'],good:['#4ade80','✔']};
+function ev(t,text,kind,focus){
+  t=Math.max(0,Math.floor(t));S.events.push({t,text,kind});if(S.silent)return;
+  const [c,ic]=EV_STYLE[kind]||EV_STYLE.info;
+  const el=document.createElement('button');el.className='ev';
+  el.innerHTML=`<span class="evt">${SCN[S.kind].fmt(t)}</span><span class="evi" style="color:${c}">${ic}</span><span class="evx">${text}</span>`;
+  if(focus){const f={x:focus.x,y:focus.y||H(focus.x,focus.z),z:focus.z};el.onclick=()=>flyTo(f.x,f.y,f.z,100);}
+  document.getElementById('feed').prepend(el);
+}
+function resetCity(silent){
+  PALACES.forEach(p=>p.meshes.forEach(o=>{if(o.userData.mat0){o.material.dispose();o.material=o.userData.mat0;o.userData.mat0=null;}o.visible=true;}));
+  S=null;
+  IM.forEach((m,k)=>{m.instanceColor.array.set(SNAP[k].c);m.instanceMatrix.array.set(SNAP[k].x);m.instanceColor.needsUpdate=m.instanceMatrix.needsUpdate=true;});
+  SYS.forEach(s=>{s.status='ok';s.load=0;s.careLoad=0;s.blocked=false;s.overrun=false;if(s.care0!=null)s.care=s.care0;if(s.cap0!=null)s.shelterCap=s.cap0;if(s.garrison0!=null)s.garrison=s.garrison0;if(s.site)s.site.roofs.forEach(o=>o.visible=true);});SP.forEach((s,i)=>{s.garrison=PAL_G[i];s.shelterCap=0;});
+  FIRE.clear();SMOKE.clear();flows.fill(null);FA.fill(0);flowG.attributes.aAlpha.needsUpdate=true;AA.fill(0);armyG.attributes.aAlpha.needsUpdate=true;clearArcs();
+  palLight.intensity=0;clusterLights.forEach(l=>l.intensity=0);
+  ships.forEach(s=>{s.position.copy(s.userData.base);s.rotation.y=s.userData.rot;s.userData.burn=0;s.userData.sink=0;s.userData.tilt=0;s.userData.rough=0;});
+  ENEMY.forEach(g=>scene.remove(g));ENEMY.length=0;
+  WEATHER.target=0;SHAKE.amp=0;
+  if(!silent){document.getElementById('feed').innerHTML='<div class="evempty">Choose a disaster above, set its options, and start it to watch how the damage spreads through Ithaca.</div>';
+    document.body.classList.remove('sim-on');UI.pause.textContent='Pause';UI.phase.textContent='Ready';lastRun=null;UI.save.classList.add('hidden');postToParent('reset',{});}
+  updateHUD();
+}
+function flyTo(x,y,z,dist){goTo({cam:[x+dist*.75,y+dist*.62,z+dist*.85],tgt:[x,y,z]});}
+
+const UI={o1:document.getElementById('simO1'),o2:document.getElementById('simO2'),o1l:document.getElementById('simO1L'),o2l:document.getElementById('simO2L'),go:document.getElementById('simIgnite'),pause:document.getElementById('simPause'),
+  reset:document.getElementById('simReset'),follow:document.getElementById('simFollow'),focus:document.getElementById('simFocus'),clock:document.getElementById('simClock'),phase:document.getElementById('simPhase'),bar:document.getElementById('simBar'),title:document.getElementById('simTitle'),save:document.getElementById('simSave')};
+function fill(sel,o){sel.innerHTML='';o.opts.forEach(([v,l])=>{const e=document.createElement('option');e.value=v;e.textContent=l;sel.appendChild(e);});sel.value=o.def;}
+function selectScenario(k){CUR=k;const sc=SCN[k];UI.title.textContent=sc.title;UI.go.textContent=sc.go;UI.o1l.textContent=sc.o1.label;UI.o2l.textContent=sc.o2.label;fill(UI.o1,sc.o1);fill(UI.o2,sc.o2);
+  sc.kpi.forEach((l,i)=>document.getElementById('l'+(i+1)).textContent=l);
+  document.querySelectorAll('[data-scn]').forEach(b=>b.classList.toggle('on',b.dataset.scn===k));
+  if(S&&S.kind!==k)resetCity(false);else updateHUD();if(typeof schedulePreview==='function'&&!S)schedulePreview();}
+document.querySelectorAll('[data-scn]').forEach(b=>b.onclick=()=>selectScenario(b.dataset.scn));
+UI.go.onclick=()=>startLive(CUR,UI.o1.value,UI.o2.value);
+UI.pause.onclick=()=>{if(!S||S.done)return;S.playing=!S.playing;UI.pause.textContent=S.playing?'Pause':'Resume';};
+UI.reset.onclick=()=>resetCity(false);
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{S_SPEED=+b.dataset.speed;if(S)S.speed=S_SPEED;document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('on',x===b));});
+
+const sysList=document.getElementById('sysList');
+const labelChip=new Map();
+PLACES.forEach(pl=>{if(!pl.el)return;const s=SYS.find(x=>x.name===pl.name||(pl.name==='Mount Neritos'&&x.id==='tow0'));if(!s)return;
+  pl.el.innerHTML=`<span>${pl.name}</span><span class="chip"></span>`;labelChip.set(s,pl.el.querySelector('.chip'));});
+let hudT=0;
+function updateHUD(){
+  if(typeof DEV!=='undefined'&&DEV.on){if(DEV.dirty!==false){updateDev();DEV.dirty=false;}if(typeof renderInsight==='function'&&!ORACLE.busy)renderInsight();return;}
+  const sc=SCN[S?S.kind:CUR];
+  const vals=S?sc.kpis():['0','0','0','0','0'];const sv=sev();
+  vals.concat([sv]).forEach((v,i)=>{const e=document.getElementById('k'+(i+1));if(e)e.textContent=v;});
+  document.getElementById('k6').style.color=sv<15?'#4ade80':sv<35?'#fbbf24':sv<60?'#fb923c':'#f87171';
+  const tt=S?Math.min(Math.floor(S.t),sc.end):0;UI.clock.textContent=sc.fmt(tt);UI.bar.style.width=(S?Math.min(S.t/sc.end,1)*100:0)+'%';
+  const all=SYS.filter(x=>x.status!=='ok').sort((a,b)=>ST_RANK[b.status]-ST_RANK[a.status]||(a.site?1:0)-(b.site?1:0));const rows=all.slice(0,14);
+  sysList.innerHTML=rows.length?rows.map(x=>{let extra='';if(x.kind==='shelter'||x.kind==='granary'){if(x.load)extra=`${x.load.toLocaleString()} sheltered`;if(x.careLoad)extra+=(extra?' · ':'')+`${x.careLoad} wounded`;}
+      if(x.kind==='granary'&&S&&S.displaced)extra=`feeding ${S.displaced.toLocaleString()}`+(S.grainFactor<1?` · ${Math.round((1-S.grainFactor)*100)}% stores lost`:'');
+      if(x.kind==='hospital'&&x.careLoad)extra=`${x.careLoad}/${x.care} beds filled`;if(x.kind==='school'&&x.load)extra=`${x.load} sheltering`;
+      if(x.kind==='palace'&&S&&S.pf&&x===S.pf.ps)extra=`fire damage ${Math.min(100,Math.round(S.pf.dmg*100))}%`;
+      return `<button class="sysrow" data-id="${x.id}"><span class="dot" style="background:${ST[x.status]}"></span><span class="nm">${x.name}</span><span class="st" style="color:${ST[x.status]}">${ST_LABEL[x.status]}</span>${extra?`<span class="ex">${extra}</span>`:''}</button>`;}).join('')+(all.length>14?`<div class="evempty">…and ${all.length-14} more affected</div>`:'')
+    :'<div class="evempty">All systems normal.</div>';
+  sysList.querySelectorAll('.sysrow').forEach(b=>b.onclick=()=>{const x=SYS.find(q=>q.id===b.dataset.id);flyTo(x.x,x.y,x.z,100);});
+  labelChip.forEach((chip,x)=>{if(x.status==='ok'){chip.style.display='none';return;}chip.style.display='inline-block';chip.style.background=ST[x.status];chip.textContent=ST_LABEL[x.status];});
+  postLiveToParent();
+  if(typeof renderInsight==='function'&&!ORACLE.busy)renderInsight();
+}
+
+
+// =====================================================================
+// ============== CIVIC BUILDINGS (3D) & DEVELOPMENT PLANNER ===========
+// =====================================================================
+const SITE_STYLE={hospital:{col:'#f43f5e',label:'Hospital',plural:'Hospitals',icon:'✚',cost:15,unit:'beds'},
+  school:{col:'#38bdf8',label:'School',plural:'Schools',icon:'✎',cost:8,unit:'shelter places'},
+  base:{col:'#e0a458',label:'Military base',plural:'Military bases',icon:'⛨',cost:10,unit:'soldiers'}};
+const SITE_MESHES=[];
+const colGeo=new THREE.CylinderGeometry(1,.85,1,10);colGeo.translate(0,.5,0);
+const discGeo=new THREE.CylinderGeometry(1,1,1,14);discGeo.rotateX(Math.PI/2);
+const FLAGTEX=(()=>{const cv=document.createElement('canvas');cv.width=32;cv.height=16;const c=cv.getContext('2d');c.fillStyle='#f4efe4';c.fillRect(0,0,32,16);c.fillStyle='#b4232c';for(let i=0;i<32;i+=8)c.fillRect(i,0,4,16);return new THREE.CanvasTexture(cv);})();
+const flagMat=new THREE.MeshStandardMaterial({map:FLAGTEX,side:THREE.DoubleSide,roughness:1});
+function buildSiteMesh(st){
+  const g=new THREE.Group();g.position.set(st.x,st.y,st.z);g.rotation.y=st.a;scene.add(g);st.group=g;st.roofs=[];
+  const reg=(o,shadow,roof)=>{o.castShadow=shadow;o.receiveShadow=true;o.userData.site=st;g.add(o);SITE_MESHES.push(o);if(roof)st.roofs.push(o);return o;};
+  const B=(w,h,d,x,y,z,col,shadow=true,roof=false)=>{const o=new THREE.Mesh(box,M(col));o.scale.set(w,h,d);o.position.set(x,y,z);return reg(o,shadow,roof);};
+  const Col=(r,h,x,y,z,col)=>{const o=new THREE.Mesh(colGeo,M(col));o.scale.set(r,h,r);o.position.set(x,y,z);return reg(o,false,false);};
+  if(st.kind==='school'){
+    B(12.4,.7,8.4,0,-.6,0,'#cdbf9f');
+    B(11,3.2,3.4,0,.1,-2,'#efe6d2');
+    const r=new THREE.Mesh(gable,M('#a4502f'));r.scale.set(11.6,1.5,3.9);r.position.set(0,3.3,-2);reg(r,true,true);
+    for(let x=-4.4;x<=4.41;x+=2.2)Col(.28,2.9,x,.1,1.4,'#f4ecda');
+    B(10.6,.45,.7,0,3,1.4,'#2f5fa0',false);B(11,.25,2.7,0,3.45,.55,'#9e4f33',true,true);
+    B(10,.08,1.6,0,.1,3.2,'#dcc795',false);
+  }else if(st.kind==='hospital'){
+    B(12.4,.7,8.4,0,-.6,0,'#cdbf9f');
+    B(12,2.8,2.6,0,.1,-2.7,'#f6f0e2');B(12.4,.3,3,0,2.9,-2.7,'#8c5a3c',true,true);B(12.05,.4,2.65,0,2.2,-2.7,'#b4232c',false);
+    [-1,1].forEach(sd=>{B(2.6,2.8,4.6,sd*4.7,.1,.6,'#f6f0e2');B(3,.3,5,sd*4.7,2.9,.6,'#8c5a3c',true,true);B(2.65,.4,4.65,sd*4.7,2.2,.6,'#b4232c',false);});
+    B(1.4,.8,1,0,.1,.8,'#d8ccb0',false);
+    Col(.09,6,3.2,.1,3.1,'#6b4a2e');const f=new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.3),flagMat);f.position.set(4.4,5.3,3.1);reg(f,false,false);
+  }else{
+    B(12.4,.5,8.4,0,-.45,0,'#a8916d');
+    B(12,1.8,.6,0,.05,-3.7,'#a3977f');B(12,1.8,.6,0,.05,3.7,'#a3977f');[-1,1].forEach(sd=>B(.6,1.8,8,sd*5.7,.05,0,'#a3977f'));
+    B(7,2.4,2.8,-1.2,.05,-1.6,'#d6c7a6');const r=new THREE.Mesh(hip,M('#5f4a38'));r.scale.set(7.5,1.1,3.3);r.position.set(-1.2,2.45,-1.6);reg(r,true,true);
+    B(2.4,7,2.4,4,.05,1.8,'#b3a68e');B(3,.5,3,4,7.05,1.8,'#5a4a3a',true,true);
+    [-3,-1.5,0].forEach(x=>{const o=new THREE.Mesh(discGeo,M('#c08a3e'));o.scale.set(.5,.5,.15);o.position.set(x,1.1,4.05);reg(o,false,false);});
+  }
+  return g;
+}
+SITES.forEach(buildSiteMesh);
+// surveyed plots: dusty pads with corner stakes
+const plotStakes=inst(box,M('#6b4a2e'),PLOTS.length*4,false);
+PLOTS.forEach(pl=>{const g=new THREE.Group();g.position.set(pl.x,pl.y,pl.z);g.rotation.y=pl.a;scene.add(g);
+  const pad=new THREE.Mesh(box,M('#cbb68a'));pad.scale.set(12.6,.5,8.6);pad.position.y=-.42;pad.receiveShadow=true;g.add(pad);pl.pad=g;
+  [[-6,-4],[6,-4],[-6,4],[6,4]].forEach(([lx,lz])=>{const[ox,oz]=rotOff(lx,lz,pl.a);put(plotStakes,pl.x+ox,pl.y,pl.z+oz,pl.a,.18,1.4,.18);});});
+plotStakes.instanceMatrix.needsUpdate=true;
+
+// labels for civic buildings (shown when the camera is close)
+function addSiteLabel(st){const el=document.createElement('div');el.className='lbl absolute font-display tracking-wider px-1.5 py-0.5 rounded-md bg-black/55 border text-[10px] text-stone-100';
+  el.style.borderColor=SITE_STYLE[st.kind].col+'99';el.innerHTML=`<span style="color:${SITE_STYLE[st.kind].col}">${SITE_STYLE[st.kind].icon}</span> <span>${st.name}</span><span class="chip"></span>`;lblHost.appendChild(el);
+  const p={name:st.name,pos:[st.x,st.y+9,st.z],v:new THREE.Vector3(st.x,st.y+9,st.z),el,near:st.sys&&st.sys.devAdded?520:200,site:st};PLACES.push(p);st.label=p;if(st.sys)labelChip.set(st.sys,el.querySelector('.chip'));return p;}
+
+// click a civic building
+const siteCard=document.getElementById('siteCard');
+function showSite(st){
+  if(!st){siteCard.classList.add('opacity-0','translate-y-3','pointer-events-none');return;}
+  const o=st.sys,sty=SITE_STYLE[st.kind];
+  const cap=st.kind==='hospital'?`${o.care} beds${S&&o.careLoad?` · ${o.careLoad} wounded in care`:''}`:st.kind==='school'?`${o.shelterCap} shelter places${S&&o.load?` · ${o.load} sheltering`:''}`:`${o.garrison} soldiers · fire & rescue crews`;
+  const reach=st.kind==='base'?'Answers fires, raids and collapses nearby':`Serves ${Math.round(servedBy(o)).toLocaleString()} people within walking distance`;
+  siteCard.innerHTML=`<div class="flex items-start justify-between"><div><div class="text-[10px] uppercase tracking-[.2em]" style="color:${sty.col}">${sty.icon} ${sty.label}${o.devAdded?' · new in your plan':''}</div>
+    <div class="font-display text-lg text-bronze-300 leading-tight mt-1">${st.name}</div></div><button class="text-stone-400 hover:text-white text-xl leading-none px-1" onclick="this.closest('#siteCard').classList.add('opacity-0','pointer-events-none')">×</button></div>
+    <div class="meander my-2 opacity-40"></div><div class="text-sm text-stone-200">${cap}</div><div class="text-xs text-stone-400 mt-1">${reach}</div>
+    <div class="text-xs mt-2">Status: <span style="color:${ST[o.status]}">${ST_LABEL[o.status]}</span> · ${quarter(Math.atan2(st.x,st.z))}</div>`;
+  siteCard.classList.remove('opacity-0','translate-y-3','pointer-events-none');
+}
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!downAt||Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1])>5)return;
+  mouse.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(mouse,camera);
+  const hit=ray.intersectObjects(SITE_MESHES.filter(o=>o.parent&&o.parent.visible),false)[0];
+  if(hit){showSite(hit.object.userData.site);showHouse(-1);}else showSite(null);
+});
+
+// ---------------- development metrics ----------------
+const R_HOSP=55,R_SCHOOL=50,R_FIRE=39,TREASURY=120;
+function nearestDist(kind){const list=SITE_SYS.filter(o=>o.kind===kind&&live(o));const out=new Float32Array(N);for(let i=0;i<N;i++){let m=1e9;for(const o of list){const d=Math.hypot(HX[i]-o.x,HZ[i]-o.z);if(d<m)m=d;}out[i]=m;}return out;}
+function servedBy(o){const R=o.kind==='hospital'?R_HOSP:R_SCHOOL;let s=0;for(let i=0;i<N;i++)if(Math.hypot(HX[i]-o.x,HZ[i]-o.z)<=R)s+=SOULS[i];return s;}
+function devMetrics(){
+  const dh=nearestDist('hospital'),ds=nearestDist('school'),db=nearestDist('base');let ch=0,cs=0,rt=0;
+  for(let i=0;i<N;i++){if(dh[i]<=R_HOSP)ch+=SOULS[i];if(ds[i]<=R_SCHOOL)cs+=SOULS[i];if(db[i]<=R_FIRE)rt+=SOULS[i];}
+  const T=TOTAL_SOULS,act=SITE_SYS.filter(live);
+  const beds=act.filter(o=>o.kind==='hospital').reduce((a,o)=>a+o.care0,0)+S_TEM[0].care+S_TEM[2].care;
+  const places=shelterList().reduce((a,o)=>a+(o.cap0??o.shelterCap),0);
+  const defense=PAL_G.reduce((a,b)=>a+b,0)+act.filter(o=>o.kind==='base').reduce((a,o)=>a+o.garrison0,0);
+  const m={hosp:ch/T,school:cs/T,resp:rt/T,beds,bedsK:beds/(T/1000),places,placesPct:places/T,defense,
+    n:{hospital:act.filter(o=>o.kind==='hospital').length,school:act.filter(o=>o.kind==='school').length,base:act.filter(o=>o.kind==='base').length}};
+  m.score=Math.round(100*(.24*m.hosp+.14*m.school+.16*Math.min(1,m.bedsK/60)+.16*Math.min(1,m.placesPct/.9)+.15*m.resp+.15*Math.min(1,m.defense/1100)));
+  return m;
+}
+const DEV={on:false,view:'normal',added:[],log:[],stress:null,base:null};
+const spent=()=>DEV.added.reduce((a,o)=>a+SITE_STYLE[o.kind].cost,0);
+function bestPlot(kind){
+  const free=PLOTS.filter(p=>!p.used);if(!free.length)return null;
+  const d=nearestDist(kind);let best=null,bg=-1;
+  for(const pl of free){let gain=0;
+    for(let i=0;i<N;i++){const dp=Math.hypot(HX[i]-pl.x,HZ[i]-pl.z);
+      if(kind==='hospital'){if(dp<=R_HOSP&&d[i]>R_HOSP)gain+=SOULS[i];else if(dp<=R_HOSP)gain+=SOULS[i]*.08;}
+      else if(kind==='school'){if(dp<=R_SCHOOL&&d[i]>R_SCHOOL)gain+=SOULS[i];else if(dp<=R_SCHOOL)gain+=SOULS[i]*.08;}
+      else{if(dp<=R_FIRE&&d[i]>R_FIRE)gain+=SOULS[i];else gain+=SOULS[i]*Math.max(0,d[i]-dp)/400;}}
+    if(kind==='base')gain+=Math.max(0,140-Math.hypot(pl.x-SHORE.x,pl.z-SHORE.z))*3;
+    if(gain>bg){bg=gain;best=pl;}}
+  return best&&{plot:best,gain:bg};
+}
+const DEV_NAMES={hospital:q=>`New Asclepion, ${q} quarter`,school:q=>`New Gymnasium, ${q} quarter`,base:q=>`${q} Watch Garrison`};
+function devLog(text,kind){DEV.log.unshift({text,kind});DEV.dirty=true;DEV.oDirty=true;if(DEV.on)renderDevFeed();}
+function devBuild(kind){
+  if(S)resetCity(true);
+  const cost=SITE_STYLE[kind].cost;if(spent()+cost>TREASURY){devLog(`Not enough talents in the treasury for another ${SITE_STYLE[kind].label.toLowerCase()} (${cost} needed).`,'bad');flashTreasury();return;}
+  const choice=bestPlot(kind);if(!choice){devLog('Every surveyed plot in the city is already built on.','bad');return;}
+  const pl=choice.plot;const q=quarter(Math.atan2(pl.x,pl.z)).replace(' quarter','');
+  const before=devMetrics();
+  const st={kind,name:DEV_NAMES[kind](q),x:pl.x,z:pl.z,a:pl.a,y:pl.y,plot:pl};
+  if(SITE_SYS.some(o=>o.name===st.name))st.name+=' II';
+  pl.used=st;buildSiteMesh(st);st.group.scale.y=.02;st.rise=performance.now();
+  const o=siteSys(st,true);makeBeacon(o);addSiteLabel(st);DEV.added.push(o);
+  const after=devMetrics();
+  const what=kind==='hospital'?`brings a hospital within reach of ${Math.round((after.hosp-before.hosp)*TOTAL_SOULS).toLocaleString()} more people (+${st.beds} beds)`
+    :kind==='school'?`brings a school within reach of ${Math.round((after.school-before.school)*TOTAL_SOULS).toLocaleString()} more children and adds ${st.places} shelter places`
+    :`brings fire & rescue crews within 3½ minutes of ${Math.round((after.resp-before.resp)*TOTAL_SOULS).toLocaleString()} more people and adds ${st.garrison} soldiers`;
+  DEV.dirty=true;devLog(`Built <b>${st.name}</b> for ${cost} talents — ${what}.`,kind);
+  flyTo(st.x,st.y,st.z,70);applyView();updateHUD();FOCUS.dev={x:st.x,z:st.z,until:performance.now()+5000};
+}
+function devRemove(kind){
+  if(S)resetCity(true);
+  const i=DEV.added.map(o=>o.kind).lastIndexOf(kind);if(i<0)return;const o=DEV.added.splice(i,1)[0],st=o.site;
+  scene.remove(st.group);st.group.traverse(m=>{const k=SITE_MESHES.indexOf(m);if(k>=0)SITE_MESHES.splice(k,1);});
+  st.plot.used=null;SYS.splice(SYS.indexOf(o),1);SITE_SYS.splice(SITE_SYS.indexOf(o),1);scene.remove(o.beacon);scene.remove(o.ring);
+  st.label.el.remove();PLACES.splice(PLACES.indexOf(st.label),1);labelChip.delete(o);
+  DEV.dirty=true;devLog(`Plan revised: ${st.name} removed (${SITE_STYLE[kind].cost} talents returned).`,'info');applyView();updateHUD();
+}
+function flashTreasury(){const e=document.getElementById('devTreasury');e.classList.add('text-red-400');setTimeout(()=>e.classList.remove('text-red-400'),700);}
+// coverage views: tint every house by whether help is within reach
+const GOOD=C('#15a34a'),BADC=C('#dc2626'),MIDC=C('#f59e0b');
+function applyView(){
+  if(S)return;
+  const RM=[[mainM,0],[hipM,2],[eaveM,3],[flatM,4],[annexM,5],[annexRoofM,6]];RM.forEach(([m,k])=>m.instanceColor.array.set(SNAP[k].c));
+  if(DEV.on&&DEV.view!=='normal'){
+    const d=nearestDist(DEV.view==='resp'?'base':DEV.view);
+    for(let i=0;i<N;i++){let c;
+      if(DEV.view==='resp'){const t=2+d[i]/26;c=t<=3.5?GOOD:t<5?MIDC:BADC;}
+      else c=d[i]<=(DEV.view==='hospital'?R_HOSP:R_SCHOOL)?GOOD:BADC;
+      const rc=c.clone().multiplyScalar(.9);mainM.setColorAt(i,c);annexM.setColorAt(i,c);hipM.setColorAt(i,rc);eaveM.setColorAt(i,rc);flatM.setColorAt(i,rc);annexRoofM.setColorAt(i,rc);}}
+  RM.forEach(([m])=>m.instanceColor.needsUpdate=true);
+}
+// stress test: the same four disasters, with and without the plan
+const STRESS=[{label:'Palace fires · all five palaces',runs:[0,1,2,3,4].map(i=>['fire',String(i),'boreas'])},{label:'Storm of Zeus',runs:[['rain','winter','storm']]},{label:'Taphian fleet vs. watchful Ithaca',runs:[['attack','watchful','fleet']]},{label:'Strong quake beneath the city',runs:[['quake','city','strong']]}];
+function runGroup(g){const rs=g.runs.map(r=>runOne(...r));const sum=k=>rs.reduce((a,r)=>a+r[k],0);return{sev:Math.round(sum('sev')/rs.length),lost:sum('lost'),untreated:sum('untreated'),unsheltered:sum('unsheltered'),injured:sum('injured'),homeless:sum('homeless')};}
+function runOne(kind,o1,o2){newSim(kind,o1,o2,true);const end=SCN[kind].end;while(!S.done&&S.tick<end){S.t=S.tick+1;tick(S.tick+1);}
+  const r={sev:sev(),lost:S.burned+S.collapsed,untreated:S.untreated,unsheltered:S.unsheltered,injured:S.injured,homeless:S.displaced};resetCity(true);return r;}
+function runStress(){
+  if(!DEV.added.length){devLog('Build something first — the stress test compares your plan against today\'s Ithaca.','info');return;}
+  const btn=document.getElementById('devStress');btn.disabled=true;btn.textContent='Testing the plan…';
+  const out=[];let k=0;
+  const step=()=>{const g=STRESS[k];
+    DEV.added.forEach(o=>o.active=false);const a=runGroup(g);
+    DEV.added.forEach(o=>o.active=true);const b=runGroup(g);
+    out.push({label:g.label,a,b});k++;
+    if(k<STRESS.length)setTimeout(step,30);
+    else{DEV.stress=out;btn.disabled=false;btn.textContent='Stress-test the plan again';applyView();renderStress();
+      const avgA=out.reduce((s,r)=>s+r.a.sev,0)/out.length,avgB=out.reduce((s,r)=>s+r.b.sev,0)/out.length;
+      devLog(`Stress test: average disaster severity ${Math.round(avgA)} → <b>${Math.round(avgB)}</b> with your plan.`,'good');updateHUD();}};
+  setTimeout(step,30);
+}
+function renderStress(){
+  const el=document.getElementById('devStressOut');if(!DEV.stress){el.innerHTML='';return;}
+  const d=(a,b,lowGood=true)=>{const diff=b-a;if(!diff)return'<span class="text-stone-500">±0</span>';const good=lowGood?diff<0:diff>0;return`<span class="${good?'text-emerald-400':'text-red-400'}">${diff>0?'+':''}${diff.toLocaleString()}</span>`;};
+  el.innerHTML=`<table class="w-full text-[11px] mt-2"><thead class="text-stone-400"><tr><th class="text-left font-normal pb-1">Disaster</th><th class="font-normal">Severity</th><th class="font-normal">Houses lost</th><th class="font-normal">Untreated</th><th class="font-normal">No shelter</th></tr></thead><tbody>`+
+    DEV.stress.map(r=>`<tr class="border-t border-white/5"><td class="py-1 pr-1 text-stone-200 leading-tight">${r.label}</td>
+      <td class="text-center"><span class="text-stone-400">${r.a.sev}→</span><b class="text-stone-100">${r.b.sev}</b><br>${d(r.a.sev,r.b.sev)}</td>
+      <td class="text-center">${r.b.lost}<br>${d(r.a.lost,r.b.lost)}</td>
+      <td class="text-center">${r.b.untreated}<br>${d(r.a.untreated,r.b.untreated)}</td>
+      <td class="text-center">${r.b.unsheltered}<br>${d(r.a.unsheltered,r.b.unsheltered)}</td></tr>`).join('')+`</tbody></table>`;
+}
+function renderDevFeed(){
+  document.getElementById('feed').innerHTML=DEV.log.length?DEV.log.map(l=>{const c=l.kind==='bad'?'#f87171':l.kind==='good'?'#4ade80':SITE_STYLE[l.kind]?SITE_STYLE[l.kind].col:'#e8c48a';const ic=SITE_STYLE[l.kind]?SITE_STYLE[l.kind].icon:'◆';
+    return`<div class="ev" style="animation:none"><span class="evt">plan</span><span class="evi" style="color:${c}">${ic}</span><span class="evx">${l.text}</span></div>`;}).join('')
+    :'<div class="evempty">Add hospitals, schools or garrisons on the left. Each one goes on the surveyed plot where it helps the most people, and this log explains what it changed.</div>';
+}
+let devCache=null;
+function updateDev(){
+  const m=devMetrics(),b=DEV.base;devCache=m;
+  const sp=spent();document.getElementById('devTreasury').textContent=`${TREASURY-sp} of ${TREASURY} talents left`;document.getElementById('devTBar').style.width=(sp/TREASURY*100)+'%';
+  ['hospital','school','base'].forEach(k=>{document.getElementById('dn_'+k).textContent=m.n[k];const add=m.n[k]-b.n[k];document.getElementById('da_'+k).textContent=add?`+${add} new`:'';
+    document.getElementById('dp_'+k).disabled=sp+SITE_STYLE[k].cost>TREASURY||!PLOTS.some(p=>!p.used);document.getElementById('dm_'+k).disabled=!add;});
+  const row=(id,val,base,fmt,lowGood)=>{const e=document.getElementById(id);const dv=val-base;const good=lowGood?dv<0:dv>0;
+    e.innerHTML=`<b>${fmt(val)}</b>${Math.abs(dv)>1e-6?` <span class="${good?'text-emerald-400':'text-red-400'}">${dv>0?'▲':'▼'} ${fmt(Math.abs(dv)).replace(/^\\+/,'')}</span>`:''}`;};
+  const pct=v=>Math.round(v*100)+'%';
+  row('mt_hosp',m.hosp,b.hosp,pct);row('mt_school',m.school,b.school,pct);row('mt_beds',m.bedsK,b.bedsK,v=>v.toFixed(1));
+  row('mt_places',m.placesPct,b.placesPct,pct);row('mt_resp',m.resp,b.resp,pct);row('mt_def',m.defense,b.defense,v=>Math.round(v).toLocaleString());
+  document.getElementById('devScore').textContent=m.score;const ds=m.score-b.score;document.getElementById('devScoreD').innerHTML=ds?`<span class="text-emerald-400">▲ ${ds} from today</span>`:'<span class="text-stone-500">today\'s Ithaca</span>';
+  document.getElementById('devScoreBar').style.width=m.score+'%';
+  sysList.innerHTML=['hospital','school','base'].map(k=>{const sty=SITE_STYLE[k];const list=SITE_SYS.filter(o=>o.kind===k&&live(o));
+    const cap=k==='hospital'?`${list.reduce((a,o)=>a+o.care0,0)} beds`:k==='school'?`${list.reduce((a,o)=>a+o.cap0,0).toLocaleString()} shelter places`:`${list.reduce((a,o)=>a+o.garrison0,0)} soldiers`;
+    return`<div class="sysrow"><span class="dot" style="background:${sty.col}"></span><span class="nm">${list.length} ${sty.plural.toLowerCase()}</span><span class="st" style="color:${sty.col}">${cap}</span></div>`;}).join('')+
+    `<div class="sysrow"><span class="dot" style="background:#cbb68a"></span><span class="nm">${PLOTS.filter(p=>!p.used).length} surveyed plots free</span><span class="st text-stone-400">of ${PLOTS.length}</span></div>`;
+}
+function setMode(mode){
+  DEV.on=mode==='dev';
+  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+  document.getElementById('simPanel').classList.toggle('hidden',DEV.on);document.getElementById('devPanel').classList.toggle('hidden',!DEV.on);
+  document.getElementById('feedTitle').textContent=DEV.on?'Development log':'How the damage spreads · click to view';
+  document.getElementById('sysTitle').textContent=DEV.on?'Ithaca\'s infrastructure':'City systems';
+  DEV.dirty=true;
+  if(DEV.on){if(S)resetCity(true);document.body.classList.remove('sim-on');renderDevFeed();renderStress();}
+  else{applyView();resetCity(false);}
+  applyView();updateHUD();if(typeof renderInsight==='function')renderInsight(true);if(!DEV.on&&typeof schedulePreview==='function')schedulePreview();
+}
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+['hospital','school','base'].forEach(k=>{document.getElementById('dp_'+k).onclick=()=>devBuild(k);document.getElementById('dm_'+k).onclick=()=>devRemove(k);});
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{DEV.view=b.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('on',x===b));applyView();});
+document.getElementById('devStress').onclick=runStress;
+document.getElementById('devReset').onclick=()=>{while(DEV.added.length)devRemove(DEV.added[DEV.added.length-1].kind);DEV.stress=null;renderStress();DEV.log=[];devLog('Plan cleared — back to today\'s Ithaca.','info');updateHUD();};
+
+SITES.forEach(addSiteLabel);
+DEV.base=devMetrics();DEV.dirty=true;
+
+
+// =====================================================================
+// ================== ATHENA'S INSIGHT & THE ORACLE ====================
+// =====================================================================
+// Athena reads the live situation and offers counsel you can act on.
+// The Oracle runs the whole disaster ahead in silence (the model is
+// deterministic) and foretells what will happen — and re-reads fate
+// whenever you follow Athena's counsel.
+S_TEM.forEach(t=>t.care0=t.care);S_AGO.care0=S_AGO.care;SP.forEach(p=>p.shelterCap=0);
+const COUNSEL={
+  reserve:{label:'Send the reserve cohorts',desc:'Fire-fighting strength +15% from now on',apply(){S.suppBonus=(S.suppBonus||0)+.15;}},
+  levy:{label:'Arm the citizens of the Agora',desc:'150 more defenders reach the line within 4 minutes',apply(){S.levy=150;S.levyT=S.tick;}},
+  rescue:{label:'Organize rescue by quarters',desc:'Crews dig 50% faster — fewer survivors are hurt',apply(){S.rescueMult=1.5;}},
+  grain:{label:'Carry the grain uphill',desc:'The grain spoils 65% more slowly',apply(){S.grainSafe=true;}},
+  infirm:{label:'Open the temples as infirmaries',desc:'+180 beds across three sanctuaries',apply(){S_TEM[1].care=60;S_TEM[0].care+=60;S_TEM[2].care+=60;}},
+  halls:{label:'Open the palace halls to families',desc:'+300 shelter places in every standing palace',apply(){S.halls=true;SP.forEach(p=>{if(p.status!=='destroyed')p.shelterCap=300;});}},
+};
+function applyIv(id){const c=COUNSEL[id];if(!c)return;c.apply();ev(S.tick,`Heeding Athena's counsel: ${c.label.toLowerCase()}.`,'good',S.src);}
+const usedIv=id=>S&&S.ivs.some(v=>v.id===id);
+
+// ---------- prophecy: run the same disaster ahead, silently ----------
+const ORACLE={p:null,prev:null,preview:null,busy:false};
+function runSilentFull(kind,o1,o2,ivs){
+  ORACLE.busy=true;
+  newSim(kind,o1,o2,true);S.ivs=(ivs||[]).map(v=>({tick:v.tick,id:v.id,done:false}));
+  S.ivs.forEach(v=>{if(v.tick<=S.tick){applyIv(v.id);v.done=true;}});
+  const end=SCN[kind].end,curve=[{t:0,sev:sev()}];
+  while(!S.done&&S.tick<end){S.t=S.tick+1;tick(S.tick+1);curve.push({t:S.tick,sev:sev()});}
+  const r={kind,o1,o2,events:S.events.slice(),curve,doneT:S.tick,
+    final:{lost:S.burned+S.collapsed,flooded:S.flooded,homeless:S.displaced,injured:S.injured,untreated:S.untreated,sev:sev(),maxSev:S.maxSev},
+    fate:S.events.length?S.events[S.events.length-1]:null};
+  resetCity(true);ORACLE.busy=false;return r;
+}
+function startLive(kind,o1,o2){
+  ORACLE.p=runSilentFull(kind,o1,o2,[]);ORACLE.prev=null;
+  newSim(kind,o1,o2);
+  postToParent('start',{scenario:kind,scenarioTitle:SCN[kind].title});
+}
+function rebuildLive(L){
+  const fol=UI.follow.checked;UI.follow.checked=false;
+  newSim(L.kind,L.o1,L.o2);S.ivs=L.ivs.map(v=>({tick:v.tick,id:v.id,done:false}));
+  S.ivs.forEach(v=>{if(v.tick<=S.tick){applyIv(v.id);v.done=true;}});
+  while(S.tick<L.tick&&!S.done){S.t=S.tick+1;tick(S.tick+1);}
+  S.t=Math.max(L.t,S.tick);S.playing=L.playing;S.speed=L.speed;UI.follow.checked=fol;
+  if(!S.playing&&!S.done)UI.pause.textContent='Resume';
+}
+function heed(id){
+  if(!S||S.done||usedIv(id))return;
+  const L={kind:S.kind,o1:S.o1,o2:S.o2,tick:S.tick,t:S.t,playing:S.playing,speed:S.speed,ivs:S.ivs.map(v=>({tick:v.tick,id:v.id})).concat([{tick:S.tick,id}])};
+  ORACLE.prev=ORACLE.p;ORACLE.p=runSilentFull(L.kind,L.o1,L.o2,L.ivs);
+  rebuildLive(L);athenaKey='';renderInsight(true);
+}
+let previewTimer=null;
+function schedulePreview(){clearTimeout(previewTimer);previewTimer=setTimeout(()=>{if(S||DEV.on)return;ORACLE.preview=runSilentFull(CUR,UI.o1.value,UI.o2.value,[]);renderInsight(true);},350);}
+[UI.o1,UI.o2].forEach(el=>el.addEventListener('change',schedulePreview));
+
+// ---------- Athena's counsel ----------
+const IDLE_WISDOM={
+  fire:'Fire feeds on wind and on flat timber roofs. The quarter downwind of the palace is where Ithaca will burn — keep the garrisons close to it.',
+  rain:'Water finds the lowest houses first, and soaked mud-brick slumps. Shelter families uphill early, and guard the grain from the damp.',
+  attack:'Raiders want plunder, not a kingdom. Muster quickly, and a small fleet breaks on our spears; muster slowly, and they reach the king\'s hall.',
+  quake:'When the earth shakes, the two-storey houses on the slopes fall first. The first hour belongs to those buried — rescue crews matter most.'};
+const WIND_DIR={boreas:'south',notus:'north',zephyrus:'east',eurus:'west'};
+function athenaCrisis(){
+  if(!S)return{text:IDLE_WISDOM[CUR],acts:[]};
+  const L=[],acts=[];const add=id=>{if(!usedIv(id)&&!S.done)acts.push(id);};
+  const worst=SYS.filter(s=>live(s)&&s.status!=='ok').sort((a,b)=>ST_RANK[b.status]-ST_RANK[a.status]||(a.site?1:0)-(b.site?1:0))[0];
+  const H=hospitals(),hFull=H.filter(h=>h.careLoad>=h.care).length;
+  const sh=shelterList(),shLoad=sh.reduce((a,s)=>a+s.load,0),shCap=sh.reduce((a,s)=>a+s.shelterCap,0);
+  if(S.done){return{text:`It is over. ${S.kind==='attack'&&S.sackT>=0?'The king\'s hall fell because our spears gathered too slowly.':''} Switch to Development to make Ithaca stronger before the next blow — then test it again.`,acts:[]};}
+  if(S.kind==='attack'){
+    if(S.t<S.landT)L.push(`The ships beach in ${Math.max(1,Math.ceil(S.landT-S.t))} minutes. Every garrison must march for the harbor now.`);
+    else if(!S.raidOver){const R=Math.round(S.R),D=Math.round(S.D||0);
+      L.push(D<R?`The raiders outnumber our spears ${R} to ${D} — the line will be pushed back toward the ${S.front<1?'Agora':'king\'s hall'}.`:`Our spears hold: ${D} against ${R}. Press them back to the ships.`);
+      if(D<R*1.15)add('levy');}}
+  if(S.kind==='quake'&&S.trapped>20){L.push(`${S.trapped} people are still buried. Every minute matters.`);add('rescue');}
+  if(S.kind==='rain'){L.push(`The sea stands ${S.level.toFixed(1)} m above normal${S.rainI>.5?' and the rain has not eased':''}.`);if(S.spoil>.05)add('grain');}
+  if(S.burning.size>6){L.push(`${S.burning.size} houses burn${S.kind==='fire'&&WIND_DIR[S.o2]?`; the wind drives the flames ${WIND_DIR[S.o2]}`:''}.`);add('reserve');}
+  if(hFull>0||S.untreated>0){L.push(`${hFull} of ${H.length} hospitals are full${S.untreated?` and ${S.untreated} wounded lie untreated in the Agora`:''}.`);add('infirm');}
+  if(shCap&&(shLoad>shCap*.6||S.unsheltered>0)){L.push(`Shelters are ${Math.round(shLoad/shCap*100)}% full.`);add('halls');}
+  if(worst)L.unshift(`Greatest strain: <b>${worst.name}</b> (${ST_LABEL[worst.status].toLowerCase()}).`);
+  if(L.length<2)L.push('For now the city holds. Keep the reserves ready.');
+  return{text:L.slice(0,3).join(' '),acts:acts.slice(0,2)};
+}
+function athenaDev(){
+  const m=devCache||devMetrics(),left=TREASURY-spent();
+  const weak=[['hospital reach',m.hosp],['school reach',m.school],['fire-crew reach',m.resp],['shelter places',Math.min(1,m.placesPct/.9)]].sort((a,b)=>a[1]-b[1])[0];
+  const opts=['hospital','school','base'].map(k=>{const c=bestPlot(k);if(!c||SITE_STYLE[k].cost>left)return null;const w={hospital:1,school:.75,base:.85}[k];return{k,c,v:c.gain*w/SITE_STYLE[k].cost};}).filter(Boolean).sort((a,b)=>b.v-a.v);
+  let text=`Ithaca's weakest pillar is <b>${weak[0]}</b> (${Math.round(weak[1]*100)}%).`;
+  if(!opts.length)return{text:text+(left<8?' The treasury is spent — stress-test the plan to see what it bought.':' Every plot is taken.'),acts:[]};
+  const o=opts[0],q=quarter(Math.atan2(o.c.plot.x,o.c.plot.z)).toLowerCase(),n=Math.round(o.c.gain).toLocaleString();
+  text+=` Build a <b>${SITE_STYLE[o.k].label.toLowerCase()}</b> in the ${q} next: ${o.k==='base'?`fire crews would reach about ${n} more people in time`:`about ${n} more people would have one within reach`}, for ${SITE_STYLE[o.k].cost} talents.`;
+  return{text,acts:['build_'+o.k]};
+}
+
+// ---------- the Oracle ----------
+const ORACLE_DEV=[{label:'⚡ A strong earthquake beneath the city',run:['quake','city','strong'],key:'untreated',keyL:'untreated wounded'},
+  {label:'⚔ A Taphian fleet against watchful Ithaca',run:['attack','watchful','fleet'],key:'injured',keyL:'wounded'}];
+
+
+const fmtT=(kind,t)=>SCN[kind].fmt(t);
+function spark(curve,now,kind){
+  if(!curve||curve.length<2)return'';const W=290,Hh=34,max=Math.max(20,...curve.map(c=>c.sev)),end=SCN[kind].end;
+  const pts=curve.map(c=>`${(c.t/end*W).toFixed(1)},${(Hh-c.sev/max*(Hh-4)-2).toFixed(1)}`).join(' ');
+  const x=now==null?null:(Math.min(now,end)/end*W).toFixed(1);
+  return`<svg viewBox="0 0 ${W} ${Hh}" class="w-full h-9 mt-2"><polyline points="0,${Hh} ${pts} ${(curve[curve.length-1].t/end*W).toFixed(1)},${Hh}" fill="rgba(196,165,255,.15)" stroke="none"/><polyline points="${pts}" fill="none" stroke="#c4a5ff" stroke-width="1.5"/>${x!=null?`<line x1="${x}" x2="${x}" y1="0" y2="${Hh}" stroke="#f5deb3" stroke-width="1" stroke-dasharray="2 2"/>`:''}</svg>
+    <div class="flex justify-between text-[9px] text-stone-500 -mt-0.5"><span>${fmtT(kind,0)}</span><span>severity foretold</span><span>${fmtT(kind,end)}</span></div>`;
+}
+function oracleCrisis(){
+  const P=S?ORACLE.p:ORACLE.preview;
+  if(!P)return`<div class="text-stone-400">Choose a disaster. The Oracle will foretell its course before it begins.</div>`;
+  const f=P.final,k=P.kind;
+  let h='';
+  if(!S)h+=`<div class="text-stone-300">If you begin this, the Oracle foresees:</div>`;
+  h+=`<div class="text-stone-100 mt-1">${P.fate?P.fate.text:''}</div>`;
+  if(S&&ORACLE.prev){const a=ORACLE.prev.final,d=(x,y,l)=>x===y?'':`<span class="whitespace-nowrap">${l} ${x}→<b class="${y<x?'text-emerald-400':'text-red-400'}">${y}</b></span>`;
+    const parts=[d(a.lost,f.lost,'houses lost'),d(a.injured,f.injured,'injured'),d(a.untreated,f.untreated,'untreated'),d(a.homeless,f.homeless,'homeless'),d(a.sev,f.sev,'severity')].filter(Boolean);
+    h+=`<div class="mt-1.5 text-[11px] text-stone-300"><span style="color:#c4a5ff">Fate rewritten:</span> ${parts.length?parts.join(' · '):'Athena\'s counsel changed little.'}</div>`;}
+  if(S&&!S.done){const next=P.events.filter(e=>e.t>S.tick&&['bad','fire','hurt','warn','good'].includes(e.kind)).slice(0,3);
+    if(next.length)h+=`<div class="mt-2 space-y-1">${next.map(e=>`<div class="grid grid-cols-[52px_1fr] gap-1 text-[11px]"><span class="font-mono text-[10px]" style="color:#c4a5ff">in ${e.t-S.tick}${k==='rain'?'h':'m'}</span><span class="text-stone-300">${e.text.replace(/<[^>]+>/g,'')}</span></div>`).join('')}</div>`;}
+  h+=spark(P.curve,S?S.t:null,k);
+  return h;
+}
+function oracleDev(){
+  if(!DEV.added.length)return`<div class="text-stone-400">Build something, and the Oracle will foretell how your Ithaca would fare if disaster struck tomorrow.</div>`;
+  ORACLE.busy=true;
+  if(!DEV.oBase){DEV.added.forEach(o=>o.active=false);DEV.oBase=ORACLE_DEV.map(r=>runOne(...r.run));DEV.added.forEach(o=>o.active=true);applyView();}
+  if(DEV.oDirty!==false){DEV.oNow=ORACLE_DEV.map(r=>runOne(...r.run));DEV.oDirty=false;applyView();}
+  ORACLE.busy=false;
+  return`<div class="text-stone-300">If disaster struck your plan tomorrow:</div><div class="mt-1.5 space-y-1.5">`+ORACLE_DEV.map((r,i)=>{const a=DEV.oBase[i],b=DEV.oNow[i];
+    const d=(x,y,l)=>`<span class="whitespace-nowrap">${l} ${x}→<b class="${y<x?'text-emerald-400':y>x?'text-red-400':'text-stone-100'}">${y}</b></span>`;
+    return`<div class="text-[11px]"><div class="text-stone-100">${r.label}</div><div class="text-stone-400">${d(a.sev,b.sev,'severity')} · ${d(a[r.key],b[r.key],r.keyL)}</div></div>`;}).join('')+`</div>`;
+}
+// ---------- render ----------
+let athenaKey='';
+function renderInsight(force){
+  const A=DEV.on?athenaDev():athenaCrisis();
+  document.getElementById('athenaBody').innerHTML=A.text;
+  const key=A.acts.join('|')+(DEV.on?'d':'c');
+  if(force||key!==athenaKey){athenaKey=key;const box=document.getElementById('athenaActs');
+    box.innerHTML=A.acts.map(id=>{if(id.startsWith('build_')){const k=id.slice(6);return`<button class="counsel" data-iv="${id}"><b>Follow Athena's counsel</b><span>Build the ${SITE_STYLE[k].label.toLowerCase()} on the best plot</span></button>`;}
+      const c=COUNSEL[id];return`<button class="counsel" data-iv="${id}"><b>${c.label}</b><span>${c.desc}</span></button>`;}).join('');
+    box.querySelectorAll('[data-iv]').forEach(b=>b.onclick=()=>{const id=b.dataset.iv;if(id.startsWith('build_'))devBuild(id.slice(6));else heed(id);});}
+  document.getElementById('oracleBody').innerHTML=DEV.on?oracleDev():oracleCrisis();
+}
+const jsel=document.getElementById('journey');
+PLACES.forEach((p,i)=>{if(!p.cam)return;const o=document.createElement('option');o.value=i;o.textContent=p.name;jsel.appendChild(o);});
+jsel.onchange=()=>{const p=PLACES[+jsel.value];if(p&&p.cam)goTo(p);jsel.value='';};
+
+schedulePreview();
+
+
+// =====================================================================
+// ===================== GRAPH VIEW: THE CITY AS A NETWORK =============
+// =====================================================================
+const GRAPH={on:false,layout:'tiers',dirty:true,nodes:[],edges:[],els:new Map(),hover:null,sel:null,t:0};
+const REL={command:{label:'Command & orders',col:'#b28dff'},signal:{label:'Beacon signals',col:'#ffcf6b'},rescue:{label:'Fire & rescue crews',col:'#5ec8ff'},
+  casualty:{label:'Casualties to care',col:'#ff6b6b'},shelter:{label:'Overflow shelter',col:'#fff1c7'},supply:{label:'Grain & supply',col:'#ffd166'}};
+const NODE_STYLE={palace:['♛','#e8c48a','Palace'],tower:['✹','#ffcf6b','Beacon'],base:['⛨','#e0a458','Military base'],school:['✎','#38bdf8','School'],hospital:['✚','#f43f5e','Hospital'],
+  shelter:['⌂','#d6c7a6','Sanctuary'],granary:['≋','#ffd166','Granary'],harbor:['⚓','#5ec8ff','Harbor']};
+const gsym=s=>s===S_AGO?['◎','#d6c7a6','Agora']:s===S_EUM?['♣','#9fbf6a','Farm refuge']:NODE_STYLE[s.kind]||['•','#ccc',s.kind];
+function graphNodes(){return SYS.filter(s=>live(s));}
+function nearestN(list,o,k){return list.filter(x=>x!==o).map(x=>[x,Math.hypot(x.x-o.x,x.z-o.z)]).sort((a,b)=>a[1]-b[1]).slice(0,k).map(a=>a[0]);}
+function buildGraphEdges(){
+  const N2=graphNodes(),E=[],seen=new Set();
+  const add=(a,b,rel)=>{if(!a||!b||a===b)return;const k=a.id+'>'+b.id+':'+rel;if(seen.has(k))return;seen.add(k);E.push({a,b,rel,id:'e'+E.length});};
+  const P=N2.filter(s=>s.kind==='palace'),B=N2.filter(s=>s.kind==='base'),SC=N2.filter(s=>s.kind==='school'),HO=N2.filter(s=>s.kind==='hospital');
+  P.slice(1).forEach(p=>add(SP[0],p,'command'));
+  B.forEach(b=>add(nearestN(P,b,1)[0],b,'command'));HO.forEach(h=>add(nearestN(P,h,1)[0],h,'command'));
+  S_TOW.forEach(t=>add(t,SP[0],'signal'));
+  SC.forEach(s=>nearestN(B,s,2).forEach(b=>add(b,s,'rescue')));P.forEach(p=>add(nearestN(B,p,1)[0],p,'rescue'));add(nearestN(B,S_AGO,1)[0],S_AGO,'rescue');add(nearestN(B,S_HAR,1)[0],S_HAR,'rescue');
+  SC.forEach(s=>nearestN(HO,s,2).forEach(h=>add(s,h,'casualty')));add(S_AGO,nearestN(HO,S_AGO,1)[0],'casualty');
+  HO.forEach(h=>add(h,nearestN([S_TEM[2],S_TEM[0],S_AGO],h,1)[0],'casualty'));
+  HO.forEach(h=>add(h,nearestN(SC,h,1)[0],'shelter'));
+  add(S_HAR,S_GRAN,'supply');add(S_GRAN,S_AGO,'supply');add(S_EUM,S_GRAN,'supply');add(S_HAR,S_AGO,'supply');
+  return E;
+}
+// ---- layouts in a 1000×640 canvas ----
+function layoutTiers(nodes){
+  const pos=new Map(),byX=(a,b)=>a.x-b.x;
+  const row=(list,y,x0=40,x1=960)=>{list.sort(byX).forEach((s,i,arr)=>pos.set(s,{x:arr.length===1?(x0+x1)/2:x0+(x1-x0)*i/(arr.length-1),y}));};
+  const staggered=(list,ys,x0=30,x1=970)=>{list.sort(byX).forEach((s,i,arr)=>pos.set(s,{x:x0+(x1-x0)*i/Math.max(1,arr.length-1),y:ys[i%ys.length]}));};
+  row(nodes.filter(s=>s.kind==='palace'||s.kind==='tower'),55,120,880);
+  staggered(nodes.filter(s=>s.kind==='base'),[160,215]);
+  row(nodes.filter(s=>['shelter','granary','harbor'].includes(s.kind)),325,90,910);
+  row(nodes.filter(s=>s.kind==='school'),420,60,940);
+  staggered(nodes.filter(s=>s.kind==='hospital'),[530,590],50,950);
+  return pos;
+}
+function layoutMap(nodes){const pos=new Map();nodes.forEach(s=>pos.set(s,{x:500+s.x*1.72,y:320+s.z*1.18}));return pos;}
+const TIER_LABELS=[[30,'COMMAND'],[135,'DEFENCE'],[300,'CIVIC'],[397,'SCHOOLS'],[505,'CARE']];
+
+function renderGraph(){
+  const svg=document.getElementById('graphSvg');
+  const nodes=graphNodes();GRAPH.nodes=nodes;GRAPH.edges=buildGraphEdges();
+  const pos=GRAPH.layout==='tiers'?layoutTiers(nodes):layoutMap(nodes);GRAPH.pos=pos;
+  let h=`<defs>${Object.entries(REL).map(([k,r])=>`<marker id="ga_${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="${r.col}"/></marker>`).join('')}
+    <marker id="ga_act" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#ff4d1f"/></marker></defs>`;
+  if(GRAPH.layout==='tiers')h+=TIER_LABELS.map(([y,t])=>`<text x="12" y="${y}" class="gtier">${t}</text>`).join('');
+  else{h+=`<text x="12" y="24" class="gtier">N ↑</text>`;}
+  const R=n=>n.kind==='palace'?13:['shelter','granary','harbor','tower'].includes(n.kind)?11:8;
+  h+='<g id="gEdges">'+GRAPH.edges.map(e=>{const a=pos.get(e.a),b=pos.get(e.b);if(!a||!b)return'';const dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy)||1,ra=R(e.a)+2,rb=R(e.b)+4;
+    const x1=a.x+dx/l*ra,y1=a.y+dy/l*ra,x2=b.x-dx/l*rb,y2=b.y-dy/l*rb,bend=Math.min(30,l*.12),cx=(x1+x2)/2-dy/l*bend,cy=(y1+y2)/2+dx/l*bend;
+    e.d=`M${x1.toFixed(1)},${y1.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`;
+    return`<path id="${e.id}" d="${e.d}" class="gedge" stroke="${REL[e.rel].col}" marker-end="url(#ga_${e.rel})"/>`;}).join('')+'</g><g id="gActive"></g>';
+  h+='<g id="gNodes">'+nodes.map(n=>{const p=pos.get(n),[ic,col]=gsym(n),r=R(n);const short=n.name.replace(/^(The |Palace of |Temple of |Shrine of |Beacon of (the )?)/,'').replace(/ (Hospital|Academy|School|Garrison|Outpost|Barracks)$/,'');
+    const major=r>=11||n.devAdded;
+    return`<g class="gnode${n.devAdded?' gnew':''}" data-id="${n.id}" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})"><g class="gs">
+      <circle r="${r+4}" class="gring" stroke="${ST.ok}"/><circle r="${r}" fill="#0f0c09" stroke="${col}" stroke-width="1.5"/>
+      <text class="gic" fill="${col}" font-size="${r*1.15}" dy="${r*.4}">${ic}</text>
+      <text class="glabel${major?'':' minor'}" y="${r+13}">${short.length>18?short.slice(0,17)+'…':short}</text></g></g>`;}).join('')+'</g>';
+  svg.innerHTML=h;GRAPH.els.clear();if(GRAPH.layout!==GRAPH.vbLayout){GRAPH.vbLayout=GRAPH.layout;fitGraph();}else applyVB();
+  svg.querySelectorAll('.gnode').forEach(g=>{const n=nodes.find(x=>x.id===g.dataset.id);GRAPH.els.set(n,g);
+    g.onmouseenter=()=>{GRAPH.hover=n;focusGraph();};g.onmouseleave=()=>{GRAPH.hover=null;focusGraph();};g.onclick=ev=>{ev.stopPropagation();GRAPH.sel=n;focusGraph();showGraphCard(n);};});
+  svg.onclick=()=>{if(GRAPH.dragged)return;GRAPH.sel=null;focusGraph();document.getElementById('graphCard').classList.add('hidden');};
+  GRAPH.dirty=false;updateGraph(true);
+}
+function focusGraph(){
+  const f=GRAPH.hover||GRAPH.sel;const svg=document.getElementById('graphSvg');svg.classList.toggle('gfocus',!!f);
+  GRAPH.edges.forEach(e=>{const el=document.getElementById(e.id);if(el)el.classList.toggle('on',!!f&&(e.a===f||e.b===f));});
+  GRAPH.els.forEach((g,n)=>g.classList.toggle('on',!f||n===f||GRAPH.edges.some(e=>(e.a===f&&e.b===n)||(e.b===f&&e.a===n))));
+}
+function showGraphCard(n){
+  const [ic,col,kl]=gsym(n);const links=GRAPH.edges.filter(e=>e.a===n||e.b===n);
+  const cap=n.kind==='hospital'?`${n.careLoad||0}/${n.care} beds in use`:n.shelterCap?`${n.load||0}/${n.shelterCap} sheltering`:n.kind==='base'?`${n.garrison} soldiers`:n.kind==='palace'?`${n.garrison} guards`:'';
+  const byRel={};links.forEach(e=>{const o=e.a===n?e.b:e.a;(byRel[e.rel]=byRel[e.rel]||[]).push((e.a===n?'→ ':'← ')+o.name);});
+  const c=document.getElementById('graphCard');c.classList.remove('hidden');
+  c.innerHTML=`<div class="flex items-start justify-between gap-2"><div><div class="text-[10px] uppercase tracking-[.18em]" style="color:${col}">${ic} ${kl}${n.devAdded?' · new in your plan':''}</div><div class="font-display text-base text-bronze-300 leading-tight">${n.name}</div></div>
+    <span class="text-[10px] px-1.5 py-0.5 rounded" style="background:${ST[n.status]}33;color:${ST[n.status]}">${ST_LABEL[n.status]}</span></div>
+    ${cap?`<div class="text-[11px] text-stone-300 mt-1">${cap}</div>`:''}
+    <div class="mt-2 space-y-1 text-[11px] max-h-40 overflow-y-auto scrolly">${Object.entries(byRel).map(([r,l])=>`<div><span style="color:${REL[r].col}">${REL[r].label}</span><div class="text-stone-400">${l.join('<br>')}</div></div>`).join('')}</div>
+    <button class="btn w-full mt-2" id="gView3d">View in 3D city</button>`;
+  document.getElementById('gView3d').onclick=()=>{setGraph(false);flyTo(n.x,n.y,n.z,90);};
+}
+function arcEnds(a){const near=o=>{if(o&&SYS.includes(o))return o;let b=null,bd=1e9;for(const s of GRAPH.nodes){const d=Math.hypot(s.x-o.x,s.z-o.z);if(d<bd){bd=d;b=s;}}return b;};return[near(a.a),near(a.b)];}
+function updateGraph(force){
+  if(!GRAPH.on)return;const sig=graphNodes().length;if(sig!==GRAPH.sig){GRAPH.sig=sig;GRAPH.dirty=true;}if(GRAPH.dirty){renderGraph();return;}
+  GRAPH.els.forEach((g,n)=>{const ring=g.querySelector('.gring');const st=DEV.on?'ok':n.status;ring.setAttribute('stroke',ST[st]);g.classList.toggle('gbad',['burning','overloaded','destroyed','occupied','flooded'].includes(st));g.classList.toggle('galert',st!=='ok');});
+  // live cascade links (the same flows drawn as arcs in the 3D city)
+  const act=[];arcs.forEach((a,k)=>{if(a.fade||!a.a||!a.b)return;const [x,y]=arcEnds(a);if(!x||!y||x===y)return;const p=GRAPH.pos.get(x),q=GRAPH.pos.get(y);if(!p||!q)return;act.push(`<path d="M${p.x.toFixed(1)},${p.y.toFixed(1)} L${q.x.toFixed(1)},${q.y.toFixed(1)}" class="gact" stroke="${a.color||'#ff4d1f'}" marker-end="url(#ga_act)"/>`);});
+  const key=act.length+':'+arcs.size;if(force||key!==GRAPH.actKey){GRAPH.actKey=key;document.getElementById('gActive').innerHTML=act.join('');}
+  const affected=GRAPH.nodes.filter(n=>n.status!=='ok').length;
+  document.getElementById('graphLive').innerHTML=S?`<span style="color:#ff7a45">●</span> ${SCN[S.kind].fmt(Math.min(S.tick,SCN[S.kind].end))} · ${affected} affected`:DEV.on&&DEV.added.length?`<span style="color:#e0a458">●</span> ${DEV.added.length} new in plan`:'';
+}
+// ---- zoom & pan ----
+const GV={x:0,y:0,w:1000,h:640};
+function applyVB(){const svg=document.getElementById('graphSvg');svg.setAttribute('viewBox',`${GV.x.toFixed(1)} ${GV.y.toFixed(1)} ${GV.w.toFixed(1)} ${GV.h.toFixed(1)}`);
+  const z=1000/GV.w;svg.classList.toggle('gnear',z>=1.6);const k=(1/Math.pow(z,.82)).toFixed(3);svg.querySelectorAll('.gs').forEach(e=>e.setAttribute('transform',`scale(${k})`));const zl=document.getElementById('gzLevel');if(zl)zl.textContent=Math.round(z*100)+'%';}
+function fitGraph(){Object.assign(GV,{x:0,y:GRAPH.layout==='tiers'?10:0,w:1000,h:GRAPH.layout==='tiers'?610:640});applyVB();}
+function zoomGraph(f,cx,cy){const nw=clamp(GV.w*f,200,1500),k=nw/GV.w;if(cx==null){cx=GV.x+GV.w/2;cy=GV.y+GV.h/2;}
+  GV.x=cx-(cx-GV.x)*k;GV.y=cy-(cy-GV.y)*k;GV.w=nw;GV.h*=k;applyVB();}
+function svgPt(svg,e){const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse());}
+(()=>{const svg=document.getElementById('graphSvg');let drag=null;
+  svg.addEventListener('wheel',e=>{e.preventDefault();const p=svgPt(svg,e);zoomGraph(Math.exp(e.deltaY*.0015),p.x,p.y);},{passive:false});
+  svg.addEventListener('pointerdown',e=>{if(e.target.closest('.gnode'))return;drag={sx:e.clientX,sy:e.clientY,x:GV.x,y:GV.y,s:svg.getScreenCTM().a};GRAPH.dragged=false;svg.setPointerCapture(e.pointerId);svg.style.cursor='grabbing';});
+  svg.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;if(Math.hypot(dx,dy)>3)GRAPH.dragged=true;GV.x=drag.x-dx/drag.s;GV.y=drag.y-dy/drag.s;applyVB();});
+  const end=e=>{if(!drag)return;drag=null;svg.style.cursor='';setTimeout(()=>GRAPH.dragged=false,0);};
+  svg.addEventListener('pointerup',end);svg.addEventListener('pointercancel',end);
+  document.getElementById('gzIn').onclick=()=>zoomGraph(1/1.35);document.getElementById('gzOut').onclick=()=>zoomGraph(1.35);document.getElementById('gzFit').onclick=fitGraph;
+})();
+function setGraph(on){
+  GRAPH.on=on;document.getElementById('graphView').classList.toggle('hidden',!on);document.getElementById('timeBar').classList.toggle('hidden',on);document.getElementById('labels').style.display=on?'none':'';
+  document.querySelectorAll('[data-gview]').forEach(b=>b.classList.toggle('on',(b.dataset.gview==='graph')===on));
+  if(on){GRAPH.dirty=true;updateGraph(true);}
+}
+document.querySelectorAll('[data-gview]').forEach(b=>b.onclick=()=>setGraph(b.dataset.gview==='graph'));
+document.querySelectorAll('[data-glayout]').forEach(b=>b.onclick=()=>{GRAPH.layout=b.dataset.glayout;document.querySelectorAll('[data-glayout]').forEach(x=>x.classList.toggle('on',x===b));GRAPH.dirty=true;updateGraph(true);});
+document.getElementById('graphLegend').innerHTML=[['command','Command'],['signal','Signals'],['rescue','Rescue'],['casualty','Casualties'],['shelter','Shelter'],['supply','Supply']].map(([k,l])=>`<span class="whitespace-nowrap"><i style="background:${REL[k].col}"></i>${l}</span>`).join('')+`<span class="whitespace-nowrap"><i class="gactkey"></i>Live</span>`;
+
+
+// =====================================================================
+// ============ FOCUS: blur everything except the affected areas =======
+// =====================================================================
+const FOCUS={el:document.getElementById('focusMask'),targets:[],cur:[],t:0,o:0,dev:null};
+const FOCUS_BAD=['burning','overloaded','destroyed','occupied','flooded','threatened','damaged'];
+function focusPoints(){
+  const pts=[];if(!S)return pts;
+  for(const i of S.burning)pts.push([HX[i],HZ[i],2]);
+  for(let i=0;i<N;i++){const st=S.hs[i];if(st===HS.burned||st===HS.flooded||st===HS.collapsed||st===HS.looted)pts.push([HX[i],HZ[i],1]);}
+  for(const s of SYS)if(live(s)&&FOCUS_BAD.includes(s.status)&&s.kind!=='tower')pts.push([s.x,s.z,s.kind==='palace'?4:2]);
+  if(S.pf)pts.push([S.pf.p.x,S.pf.p.z,6]);
+  if(S.kind==='attack'){if(S.t<S.landT)pts.push([SHORE.x+bayDir.x*60,SHORE.z+bayDir.y*60,6]);else if(!S.raidOver){const f=frontPos(S.front);pts.push([f.x,f.z,6]);}}
+  if(S.kind==='quake'&&S.epi&&Math.hypot(S.epi.x,S.epi.z)<300)pts.push([S.epi.x,S.epi.z,5]);
+  return pts;
+}
+function focusClusters(pts){
+  const out=[];let rest=pts.slice().sort((a,b)=>b[2]-a[2]);
+  while(rest.length&&out.length<4){
+    // seed on the most important / densest point
+    let seed=rest[0];if(seed[2]<=2){let best=-1;for(let k=0;k<Math.min(rest.length,60);k++){const p=rest[k];let c=0;for(const q of rest)if(Math.abs(q[0]-p[0])<60&&Math.abs(q[1]-p[1])<60)c++;if(c>best){best=c;seed=p;}}}
+    const mine=[],other=[];for(const q of rest)(Math.hypot(q[0]-seed[0],q[1]-seed[1])<120?mine:other).push(q);
+    let cx=0,cz=0,w=0;for(const q of mine){cx+=q[0]*q[2];cz+=q[1]*q[2];w+=q[2];}cx/=w;cz/=w;
+    let r=0;for(const q of mine)r=Math.max(r,Math.hypot(q[0]-cx,q[1]-cz));
+    if(mine.length>=3||seed[2]>=4)out.push({x:cx,z:cz,r:Math.max(38,r+22)});
+    rest=other;
+  }
+  return out;
+}
+const fv=new THREE.Vector3(),fr=new THREE.Vector3();
+function updateFocus(dt){
+  const want=(S&&UI.focus.checked)||(FOCUS.dev&&performance.now()<FOCUS.dev.until);
+  const active=want&&!GRAPH.on;
+  FOCUS.o=lerp(FOCUS.o,active?1:0,Math.min(1,dt*2.2));
+  FOCUS.el.style.opacity=FOCUS.o.toFixed(3);
+  if(FOCUS.o<.01){FOCUS.el.style.display='none';return;}FOCUS.el.style.display='';
+  FOCUS.t+=dt;
+  if(FOCUS.t>.25){FOCUS.t=0;FOCUS.targets=S&&UI.focus.checked?focusClusters(focusPoints()):[];
+    if(FOCUS.dev&&performance.now()<FOCUS.dev.until)FOCUS.targets.push({x:FOCUS.dev.x,z:FOCUS.dev.z,r:40});}
+  // ease the holes toward their targets so they glide as the disaster spreads
+  const T=FOCUS.targets;
+  if(FOCUS.cur.length!==T.length)FOCUS.cur=T.map(t=>({...t}));
+  else FOCUS.cur.forEach(c=>{let b=T[0],bd=1e9;for(const t of T){const d=Math.hypot(t.x-c.x,t.z-c.z);if(d<bd){bd=d;b=t;}}const k=Math.min(1,dt*2.5);c.x=lerp(c.x,b.x,k);c.z=lerp(c.z,b.z,k);c.r=lerp(c.r,b.r,k);});
+  fr.setFromMatrixColumn(camera.matrixWorld,0);
+  const W=innerWidth,Hh=innerHeight,layers=[];
+  for(const c of FOCUS.cur){const y=Math.max(H(c.x,c.z),WL)+4;fv.set(c.x,y,c.z).project(camera);if(fv.z>1)continue;
+    const sx=(fv.x*.5+.5)*W,sy=(-fv.y*.5+.5)*Hh;fv.set(c.x+fr.x*c.r,y+fr.y*c.r,c.z+fr.z*c.r).project(camera);
+    const rp=clamp(Math.hypot((fv.x*.5+.5)*W-sx,(-fv.y*.5+.5)*Hh-sy),70,W*.6);
+    layers.push(`radial-gradient(circle at ${sx.toFixed(0)}px ${sy.toFixed(0)}px, transparent ${rp.toFixed(0)}px, #000 ${(rp*1.45).toFixed(0)}px)`);}
+  const m=layers.length?layers.join(','):'linear-gradient(#000,#000)';
+  FOCUS.el.style.webkitMaskImage=m;FOCUS.el.style.maskImage=m;
+}
+
+// ---------- per frame ----------
+function simPre(){if(SHAKE.off.lengthSq()>0){camera.position.sub(SHAKE.off);SHAKE.off.set(0,0,0);}}
+function applyWeather(dt,time){
+  const tgt=WEATHER.target||0;WEATHER.w=lerp(WEATHER.w,tgt,Math.min(1,dt*.6));const w=WEATHER.w;
+  if(w<.003&&tgt===0){if(WEATHER.applied){WEATHER.applied=false;WEATHER.w=0;setTime(tIn.value/1000);scene.fog.near=450;scene.fog.far=1700;rainG.setDrawRange(0,0);}return;}
+  WEATHER.applied=true;setTime(tIn.value/1000);
+  const storm=S&&S.kind==='rain'&&S.o2!=='steady';
+  if(storm&&w>.5&&Math.random()<dt*.3)WEATHER.flash=1;WEATHER.flash=Math.max(0,WEATHER.flash-dt*3.5);const fl=WEATHER.flash*(Math.random()<.7?1:.3);
+  const grey=C('#3b4350'),greyH=C('#5d6670');
+  skyU.top.value.lerp(grey,.85*w);skyU.horizon.value.lerp(greyH,.8*w);skyU.sunCol.value.multiplyScalar(1-w);
+  if(fl){skyU.horizon.value.lerp(C('#e8eefc'),fl*.6);skyU.top.value.lerp(C('#c7d2fe'),fl*.4);}
+  scene.fog.color.copy(skyU.horizon.value);scene.fog.near=450-250*w;scene.fog.far=1700-650*w;
+  sun.intensity*=1-.75*w;hemi.intensity=hemi.intensity*(1-.35*w)+fl*1.6;waterMat.color.lerp(C('#3e5560'),.6*w);
+  // rain streaks around the camera's focus
+  const n=Math.floor(RAIN_N*Math.min(1,w*1.2));rainG.setDrawRange(0,n*2);const T=controls.target;
+  for(let i=0;i<n;i++){const k=i*6;let y=rainPos[k+1]-120*dt;
+    if(y<WL-2||y<-50){const x=T.x+(Math.random()-.5)*520,z=T.z+(Math.random()-.5)*520;y=Math.max(H(x,z),WL)+Math.random()*220;rainPos[k]=x;rainPos[k+2]=z;}
+    rainPos[k+1]=y;rainPos[k+3]=rainPos[k]+.9;rainPos[k+4]=y+4.5;rainPos[k+5]=rainPos[k+2]+.4;}
+  rainG.attributes.position.needsUpdate=true;
+}
+function simFrame(dt,time){
+  const sc=renderer.domElement.height/(2*Math.tan(camera.fov*Math.PI/360));pmats.forEach(m=>m.uniforms.uScale.value=sc);
+  const night=1+2*(1-dayF);
+  if(S){
+    const SC=SCN[S.kind];
+    if(S.playing&&!S.done){S.t+=dt/SC.sec*S.speed;while(Math.floor(S.t)>S.tick&&!S.done)tick(S.tick+1);}
+    const W=S.wind||{x:0,z:0};
+    // burning palace
+    const F=S.pf;const I=F?F.I:0;
+    if(F&&I>.02){const p=F.p,R=13*p.k;
+      for(let k=0;k<Math.max(1,Math.round(110*I*dt));k++){const a=Math.random()*6.283,r=Math.sqrt(Math.random())*R;FIRE.emit(p.x+Math.cos(a)*r,F.ps.y+1+Math.random()*7*p.k,p.z+Math.sin(a)*r,W.x*2+(Math.random()-.5)*2,5+Math.random()*6,W.z*2+(Math.random()-.5)*2,.7+Math.random()*.6,3.6*p.k,.8,1,.55+Math.random()*.35,.15,0);}
+      for(let k=0;k<Math.round(22*I*dt+Math.random()*.6);k++){const a=Math.random()*6.283,r=Math.random()*R*.8;const g=.3+Math.random()*.14;SMOKE.emit(p.x+Math.cos(a)*r,F.ps.y+8*p.k,p.z+Math.sin(a)*r,W.x*5+(Math.random()-.5)*2,6+Math.random()*3,W.z*5+(Math.random()-.5)*2,9+Math.random()*4,8,34,g,g*.95,g*.9,1);}
+      for(let k=0;k<Math.round(12*I*dt+Math.random()*.5);k++)FIRE.emit(p.x+(Math.random()-.5)*R,F.ps.y+6,p.z+(Math.random()-.5)*R,W.x*6+(Math.random()-.5)*4,10+Math.random()*10,W.z*6+(Math.random()-.5)*4,2+Math.random()*2,.9,.3,1,.7,.3,2);
+      palLight.position.set(p.x,F.ps.y+14,p.z);}
+    palLight.intensity=I*(2.5+Math.sin(time*13)*.4+Math.sin(time*7.1)*.3)*night;
+    if(F){const ch=clamp(F.dmg,0,1)*.88;F.p.meshes.forEach(o=>{if(o.userData.c0)o.material.color.copy(o.userData.c0).lerp(CHAR,ch);});}
+    // burning houses
+    const rate=Math.min(1,320/Math.max(S.burning.size,1));
+    for(const i of S.burning){
+      for(let k=0;k<2;k++)if(Math.random()<7*dt*rate)FIRE.emit(HX[i]+(Math.random()-.5)*2.5,HY[i]+.4,HZ[i]+(Math.random()-.5)*2.5,W.x*1.5+(Math.random()-.5),3+Math.random()*3,W.z*1.5+(Math.random()-.5),.6+Math.random()*.4,2.4,.6,1,.5+Math.random()*.4,.12,0);
+      if(Math.random()<1.3*dt*rate){const g=.32+Math.random()*.14;SMOKE.emit(HX[i],HY[i]+2,HZ[i],W.x*4+(Math.random()-.5),4+Math.random()*2,W.z*4+(Math.random()-.5),7+Math.random()*3,3,16,g,g*.95,g*.9,1);}}
+    if((S.burned||S.collapsed)&&Math.random()<dt*4){for(let k=0;k<6;k++){const i=Math.floor(Math.random()*N);if(S.hs[i]===HS.burned||(S.hs[i]===HS.collapsed&&S.kind==='quake')){const g=S.hs[i]===HS.burned?.4:.6;SMOKE.emit(HX[i],HMIN[i]+1.5,HZ[i],W.x*2,2.5,W.z*2,6,2,9,g,g*.95,g*.85,1);}}}
+    if(Math.floor(time*2)!==S._lt){S._lt=Math.floor(time*2);const arr=[...S.burning];clusterLights.forEach((l,k)=>{if(!arr.length){l.userData.on=0;return;}const i=arr[Math.floor((k+.5)/4*arr.length)];l.position.set(HX[i],HY[i]+6,HZ[i]);l.userData.on=Math.min(1,arr.length/6);});}
+    clusterLights.forEach((l,k)=>l.intensity=(l.userData.on||0)*(1.4+Math.sin(time*11+k)*.3)*night*(S.burning.size?1:0));
+    // ships: row out of danger / torn loose by the sea
+    if(S.shipsOut){const u=clamp((performance.now()-S.shipsOut)/14000,0,1),e=u*u*(3-2*u);ships.forEach((s,k)=>{if(s.userData.burn)return;s.position.x=s.userData.base.x+bayDir.x*60*e*(1+k%3*.3);s.position.z=s.userData.base.z+bayDir.y*60*e*(1+k%3*.3);});}
+    if(S.shipsTorn){const age=(performance.now()-S.shipsTorn)/1000;ships.forEach((s,k)=>{s.userData.rough=Math.min(1,age*.2);s.rotation.y=s.userData.rot+Math.sin(age*.3+k)*Math.min(1.2,age*.08)*(k%2?1:-1);});}
+    // water level
+    const target=S.level||0;WL=lerp(WL,target,Math.min(1,dt*(S.kind==='quake'?1.6:.8)));
+    if(S.flags.grainArc&&Math.random()<dt*1.5)spawnFlow(S_GRAN.x,S_GRAN.z,S_AGO.x,S_AGO.z,COL.grain,0,16);
+    SC.frame(dt,time);
+  }else{WL=lerp(WL,0,Math.min(1,dt));}
+  water.position.y=.05+WL;
+  applyWeather(dt,time);
+  if(SHAKE.amp>.01){SHAKE.t-=dt;const a=SHAKE.amp*Math.max(0,SHAKE.t)/7;SHAKE.off.set((Math.random()-.5)*a,(Math.random()-.5)*a*.6,(Math.random()-.5)*a);camera.position.add(SHAKE.off);if(SHAKE.t<=0)SHAKE.amp=0;}
+  FIRE.update(dt);SMOKE.update(dt);updateFlows(dt);
+  arcs.forEach(a=>{a.o=lerp(a.o||0,a.fade?0:1,Math.min(1,dt*2.5));a.mat.opacity=.6*a.o;a.core.material.opacity=.45*a.o;a.tex.offset.x-=dt*1.4;});
+  SYS.forEach(s=>{let c,ob,orr;
+    if(DEV.on){const on=!!s.site&&live(s)&&DEV.view==='normal';c=s.site?SITE_STYLE[s.kind].col:ST.ok;const k=s.devAdded?.55+.45*Math.sin(time*4):.45;ob=on?(s.devAdded?.4:.12)*k*2:0;orr=on?(s.devAdded?.8:.5):0;}
+    else{const on=s.status!=='ok'&&S&&live(s);c=ST[s.status];const pulse=['burning','overloaded','destroyed','occupied','flooded'].includes(s.status)?.55+.45*Math.sin(time*6):1;ob=on?.22*pulse:0;orr=on?.75*pulse:0;}
+    s.beacon.material.color.set(c);s.ring.material.color.set(c);
+    s.beacon.material.opacity=lerp(s.beacon.material.opacity,ob,Math.min(1,dt*3));s.ring.material.opacity=lerp(s.ring.material.opacity,orr,Math.min(1,dt*3));
+    s.beacon.visible=s.ring.visible=s.beacon.material.opacity>.004;});
+  for(const o of SITE_SYS){const st=o.site;if(st.rise){const u=clamp((performance.now()-st.rise)/1400,0,1);st.group.scale.y=.02+.98*(1-Math.pow(1-u,3));if(u>=1)st.rise=0;}}
+  hudT+=dt;if(hudT>.12){hudT=0;updateHUD();}
+  if(GRAPH.on){GRAPH.t+=dt;if(GRAPH.t>.3){GRAPH.t=0;updateGraph();}}
+}
+selectScenario('fire');resetCity(false);
+
+// automation hook (tests / dashboard)
+window.__citysim={
+  start:(kind,o1,o2)=>{selectScenario(kind);if(o1!=null)UI.o1.value=o1;if(o2!=null)UI.o2.value=o2;startLive(kind,UI.o1.value,UI.o2.value);},reset:()=>resetCity(false),
+  fastForward:(steps=999)=>{if(!S)return;S.playing=false;const end=SCN[S.kind].end;while(!S.done&&S.tick<Math.min(end,steps)){S.t=S.tick+1;tick(S.tick+1);}updateHUD();},
+  stats:()=>S&&{kind:S.kind,t:S.tick,burned:S.burned,burning:S.burning.size,flooded:S.flooded,collapsed:S.collapsed,cracked:S.cracked,looted:S.looted,displaced:S.displaced,injured:S.injured,
+    trapped:S.trapped,R:S.R&&Math.round(S.R),D:S.D&&Math.round(S.D),front:S.front&&+S.front.toFixed(2),sack:S.sackT,level:+(S.level||0).toFixed(2),spoil:S.spoil&&+S.spoil.toFixed(2),
+    pal:S.pf&&S.pf.state,sev:sev(),done:S.done,events:S.events.length,last:S.events.length?S.events[S.events.length-1].text:'',
+    sys:SYS.filter(x=>x.status!=='ok').map(x=>x.name+':'+x.status+(x.load?' '+x.load:'')+(x.careLoad?' w'+x.careLoad:''))},
+  totalSouls:TOTAL_SOULS,houses:N,tune:o=>{Object.assign(TUNE,o);NEIGH_R=TUNE.neighR;neighCache.clear();return TUNE;}
+};
+Object.assign(window.__citysim,{
+  sites:()=>({total:SITES.length,hospital:SITES.filter(s=>s.kind==='hospital').length,school:SITES.filter(s=>s.kind==='school').length,base:SITES.filter(s=>s.kind==='base').length,plots:PLOTS.length,houses:N}),
+  mode:m=>setMode(m),build:k=>devBuild(k),remove:k=>devRemove(k),metrics:()=>devMetrics(),
+  stressSync:()=>{const out=[];for(const g of STRESS){DEV.added.forEach(o=>o.active=false);const a=runGroup(g);DEV.added.forEach(o=>o.active=true);const b=runGroup(g);out.push({label:g.label,a,b});}DEV.stress=out;renderStress();return out;},
+  log:()=>DEV.log.map(l=>l.text)
+});
+window.__citysim._dbgActive=a=>DEV.added.forEach(o=>o.active=a);
+window.__citysim._s=SITES.find(s=>s.kind==='hospital');
+window.__citysim.go=(cam,tgt)=>goTo({cam,tgt});
+window.__citysim.graph=(on,layout)=>{if(layout){GRAPH.layout=layout;GRAPH.dirty=true;}setGraph(on);return{nodes:GRAPH.nodes.length,edges:GRAPH.edges.length};};
+Object.assign(window.__citysim,{heed:id=>heed(id),oracle:()=>ORACLE.p&&ORACLE.p.final,athena:()=>document.getElementById('athenaBody').textContent,acts:()=>[...document.querySelectorAll('#athenaActs [data-iv]')].map(b=>b.dataset.iv),oracleText:()=>document.getElementById('oracleBody').textContent,
+  final:()=>S&&{lost:S.burned+S.collapsed,flooded:S.flooded,homeless:S.displaced,injured:S.injured,untreated:S.untreated,sev:sev()}});
+window.__citysim._resetOK=()=>{const bad=[];IM.forEach((m,k)=>{const a=m.instanceColor.array,b=SNAP[k].c;for(let i=0;i<a.length;i++)if(Math.abs(a[i]-b[i])>1e-6){bad.push('color'+k);break;}const x=m.instanceMatrix.array,y=SNAP[k].x;for(let i=0;i<x.length;i++)if(Math.abs(x[i]-y[i])>1e-6){bad.push('matrix'+k);break;}});
+  SYS.forEach(s=>{if(s.status!=='ok'||s.load||s.careLoad)bad.push('sys:'+s.name);});return bad;};
+window.__citysim._state=()=>({S:!!S,playing:S&&S.playing,tick:S&&S.tick,t:S&&+S.t.toFixed(2),focus:+FOCUS.o.toFixed(2),graph:GRAPH.on,dev:DEV.on,added:DEV.added.length,spent:spent(),score:devMetrics().score,enemy:ENEMY.length,wl:+WL.toFixed(2)});
+window.__citysim._speed=v=>{S_SPEED=v;if(S)S.speed=v;};
+
+// ================= loop =================
+const clock=new THREE.Clock();let frame=0;
+function animate(){
+  requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.1),t=clock.elapsedTime;frame++;simPre();
+  if(fly){fly.t=Math.min(1,fly.t+dt/2);const e=fly.t<.5?4*fly.t**3:1-((-2*fly.t+2)**3)/2;
+    camera.position.lerpVectors(fly.fp,fly.tp,e);controls.target.lerpVectors(fly.ft,fly.tt,e);if(fly.t>=1)fly=null;}
+  controls.update();
+  const p=wg.attributes.position;
+  for(let i=0;i<p.count;i++){const x=wBase[i*3],z=wBase[i*3+2];p.array[i*3+1]=Math.sin(x*.05+t*.9)*.22+Math.cos(z*.07+t*.7)*.18;}
+  p.needsUpdate=true;if(frame%3===0)wg.computeVertexNormals();
+  ships.forEach(s=>{const ph=s.userData.ph,u=s.userData,rg=1+(u.rough||0)*5;s.position.y=.15+WL-(u.sink||0)+Math.sin(t*1.1+ph)*.12*rg;s.rotation.z=Math.sin(t*.9+ph)*.035*rg+(u.tilt||0);s.rotation.x=Math.sin(t*.7+ph)*.02*(u.rough||0)*4;});
+  fireLights.forEach(([l,f],k)=>{const fl=.8+Math.sin(t*13+k)*.12+Math.sin(t*7.3+k*2)*.1;if(l)l.intensity=fl*(1+2.2*(1-dayF));f.scale.set(1,fl,1);});
+  simFrame(dt,t);
+  sky.position.copy(camera.position);stars.position.copy(camera.position);
+  if(!GRAPH.on){renderer.render(scene,camera);updLabels();}
+}
+animate();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+function count(el,to){const s=performance.now();(function f(){const k=Math.min(1,(performance.now()-s)/1800);document.getElementById(el).textContent=Math.round(to*(1-(1-k)**3)).toLocaleString();if(k<1)requestAnimationFrame(f);})();}
+const l=document.getElementById('loader');l.style.opacity=0;setTimeout(()=>l.remove(),800);
+
+window.__ithaca={houses:N,ships:ships.length,trees:treeCount,other:otherBuildings,streets:streets.length};
+postToParent('ready',{});
+}
+requestAnimationFrame(()=>setTimeout(()=>{try{build();}catch(e){setMsg('Error: '+e.message);console.error(e);}},60));
+})();
+</script>
+</body>
+</html>
