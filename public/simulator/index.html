@@ -230,7 +230,8 @@ tailwind.config = { theme: { extend: {
     <div id="graphLegend" class="glegend flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-stone-400 mt-1"></div>
   </div>
 </div>
-<!-- Right-side intelligence drawer -->
+<!-- Right-side recovery and intelligence controls -->
+<button id="recoveryModeToggle" aria-controls="recoveryModePanel" aria-expanded="false" aria-label="Open recovery operations" class="fixed top-4 right-[4.25rem] z-30 flex h-11 items-center gap-2 rounded-xl border border-emerald-300/35 bg-[#102018]/90 px-3 text-emerald-200 shadow-2xl backdrop-blur transition hover:bg-emerald-950/90"><span data-icon="heartPulse" data-size="17"></span><span class="text-[10px] font-semibold uppercase tracking-[.12em]">Recover</span></button>
 <button id="rightPanelToggle" aria-controls="rightPanel" aria-expanded="false" aria-label="Open intelligence panel" class="fixed top-4 right-4 z-30 grid h-11 w-11 place-items-center rounded-xl border border-[#c9a24b]/45 bg-[#17100c]/90 text-[#e4aa56] shadow-2xl backdrop-blur transition hover:bg-[#3a2419]"><span data-icon="menu" data-size="20"></span></button>
 <aside id="rightPanel" aria-label="City intelligence panel" aria-hidden="true" class="fixed top-16 right-4 bottom-4 z-20 hidden w-[330px] max-w-[calc(100vw-2rem)] flex-col gap-2 overflow-y-auto scrolly pointer-events-none">
   <section id="athenaPanel" class="glass pointer-events-auto shrink-0 max-h-[34vh] overflow-y-auto rounded-2xl p-3 shadow-2xl scrolly">
@@ -249,6 +250,40 @@ tailwind.config = { theme: { extend: {
     <div id="feedTitle" class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400 px-1 pb-1">How the damage spreads · click to view</div>
     <div id="feed" class="flex-1 overflow-y-auto scrolly min-h-0"></div>
   </section>
+</aside>
+
+<aside id="recoveryModePanel" aria-label="Recovery operations" aria-hidden="true" class="fixed top-16 right-4 bottom-4 z-20 hidden w-[350px] max-w-[calc(100vw-2rem)] overflow-y-auto scrolly pointer-events-none">
+  <div class="glass pointer-events-auto rounded-2xl p-4 shadow-2xl">
+    <div class="font-display text-[10px] uppercase tracking-[.2em] text-emerald-200">The return to Ithaca</div>
+    <div class="font-display text-lg text-bronze-300 leading-tight">Recovery operations</div>
+    <p id="recoverySummary" class="mt-2 text-[12px] leading-relaxed text-stone-300">Complete a crisis simulation to assess damage and begin restoring the city.</p>
+    <div class="mt-3 grid grid-cols-2 gap-2">
+      <div class="kpi"><b id="recoveryHomes">—</b><span>Homes to restore</span></div>
+      <div class="kpi"><b id="recoverySystems">—</b><span>City systems affected</span></div>
+    </div>
+    <div class="mt-4">
+      <div class="text-[10px] uppercase tracking-[.12em] text-stone-400">Choose a recovery priority</div>
+      <div class="mt-2 grid grid-cols-3 gap-1.5">
+        <button class="spd" data-recovery-priority="homes">Homes first</button>
+        <button class="spd" data-recovery-priority="systems">Essential systems</button>
+        <button class="spd on" data-recovery-priority="balanced">Balanced</button>
+      </div>
+      <label class="mt-3 block text-[10px] uppercase tracking-[.12em] text-stone-400">Repair crews <span id="recoveryCrewCount" class="ml-1 text-bronze-300">3</span>
+        <input id="recoveryCrews" type="range" min="1" max="5" value="3" class="mt-2 w-full">
+      </label>
+      <p id="recoveryPlanHint" class="mt-1 text-[10px] leading-relaxed text-stone-500">Balanced crews restore essential systems and homes in parallel.</p>
+    </div>
+    <div class="mt-4 space-y-2 text-[11px]">
+      <div id="recoveryStep1" class="rounded-lg border border-white/10 bg-black/15 px-3 py-2 text-stone-400">1. Assess damage</div>
+      <div id="recoveryStep2" class="rounded-lg border border-white/10 bg-black/15 px-3 py-2 text-stone-400">2. Dispatch repair crews</div>
+      <div id="recoveryStep3" class="rounded-lg border border-white/10 bg-black/15 px-3 py-2 text-stone-400">3. Restore homes and services</div>
+      <div id="recoveryStep4" class="rounded-lg border border-white/10 bg-black/15 px-3 py-2 text-stone-400">4. Verify the city is back online</div>
+    </div>
+    <div class="mt-4 h-1.5 overflow-hidden rounded bg-black/40"><div id="recoveryProgress" class="h-full rounded bg-gradient-to-r from-emerald-500 to-emerald-200 transition-all duration-200" style="width:0%"></div></div>
+    <div id="recoveryProgressText" class="mt-1 text-right text-[10px] text-stone-500">0% restored</div>
+    <button id="recoveryAction" class="btn mt-4 w-full border-emerald-300/40 bg-emerald-950/30 text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40" disabled>Run a crisis first</button>
+    <p class="mt-3 text-[10px] leading-relaxed text-stone-500">The damage report stays in the event log and run summary after the city is restored.</p>
+  </div>
 </aside>
 
 <!-- House info -->
@@ -1135,7 +1170,8 @@ function ruinHouse(i,wallScale){[hipM,eaveM,flatM,annexRoofM].forEach(m=>hideIns
 // ======================== state & shared mechanics ===================
 // house states
 const HS={ok:0,burning:1,burned:2,scorched:3,flooded:4,collapsed:5,looted:6,cracked:7};
-let S=null;
+let S=null,ACTIVE_MODE='crisis';
+const RECOVERY={stage:'idle',runKey:null,timer:null,targets:[],cursor:0,total:0,restored:0,priority:'balanced',crews:3};
 // common random numbers: the same house gets the same luck in every run, so plan comparisons are fair
 function hr(a,b,c){let h=(Math.imul(a+1,374761393)^Math.imul(b+7,668265263)^Math.imul(c+13,1442695041)^S.seed)|0;h=Math.imul(h^(h>>>15),2246822507);h=Math.imul(h^(h>>>13),3266489909);h^=h>>>16;return(h>>>0)/4294967296;}
 function houseColorNow(i){if(!S)return houses[i].col;return[houses[i].col,EMBER,CHAR,SCORCH,WET,RUBBLE,LOOT,CRACK][S.hs[i]];}
@@ -1525,7 +1561,7 @@ function newSim(kind,o1,o2,silent){
   tick(0);
 }
 function tick(m){S.tick=m;SCN[S.kind].tick(m);if(S.ivs)for(const v of S.ivs)if(!v.done&&v.tick===m){applyIv(v.id);v.done=true;}S.maxSev=Math.max(S.maxSev,sev());if(!S.silent)S.curve.push({t:m,sev:sev()});}
-function finish(t,text,kind){S.done=true;S.playing=false;ev(t,text,kind,S.src);if(S.silent)return;UI.pause.textContent='Done';UI.phase.textContent=kind==='good'?'Over':'Aftermath';
+function finish(t,text,kind){S.done=true;S.playing=false;ev(t,text,kind,S.src);if(S.silent)return;assessRecovery();UI.pause.textContent='Done';UI.phase.textContent=kind==='good'?'Over':'Aftermath';
   lastRun=runSummary(t,text,kind);
   postToParent('finish',lastRun);
   UI.save.classList.remove('hidden');UI.save.disabled=false;UI.save.textContent='Save to history';
@@ -1581,15 +1617,110 @@ function postLiveToParent(){
 const EV_STYLE={fire:['#ff7a45','flame'],bad:['#f87171','warning'],warn:['#fbbf24','info'],info:['#e8c48a','info'],crew:['#5ec8ff','hammer'],people:['#fff1c7','users'],hurt:['#ff8a8a','heartPulse'],good:['#4ade80','check']};
 function ev(t,text,kind,focus){
   t=Math.max(0,Math.floor(t));S.events.push({t,text,kind});if(S.silent)return;
+  if(lastRun)lastRun.events=S.events.slice();
   const [c,ic]=EV_STYLE[kind]||EV_STYLE.info;
   const el=document.createElement('button');el.className='ev';
   el.innerHTML=`<span class="evt">${SCN[S.kind].fmt(t)}</span><span class="evi" style="color:${c}">${lucideIcon(ic,12)}</span><span class="evx">${text}</span>`;
   if(focus){const f={x:focus.x,y:focus.y||H(focus.x,focus.z),z:focus.z};el.onclick=()=>flyTo(f.x,f.y,f.z,100);}
   document.getElementById('feed').prepend(el);
 }
+function recoveryStepStyle(el,active,complete){
+  el.className=`rounded-lg border px-3 py-2 ${complete?'border-emerald-300/35 bg-emerald-400/10 text-emerald-100':active?'border-amber-300/40 bg-amber-400/10 text-amber-100':'border-white/10 bg-black/15 text-stone-400'}`;
+}
+function renderRecoveryPanel(){
+  const summary=document.getElementById('recoverySummary'),homes=document.getElementById('recoveryHomes'),systems=document.getElementById('recoverySystems'),action=document.getElementById('recoveryAction'),progress=document.getElementById('recoveryProgress'),progressText=document.getElementById('recoveryProgressText'),crewRange=document.getElementById('recoveryCrews'),crewCount=document.getElementById('recoveryCrewCount'),planHint=document.getElementById('recoveryPlanHint');
+  const steps=['recoveryStep1','recoveryStep2','recoveryStep3','recoveryStep4'].map(id=>document.getElementById(id));
+  const locked=RECOVERY.stage!=='assessed';document.querySelectorAll('[data-recovery-priority]').forEach(button=>{button.classList.toggle('on',button.dataset.recoveryPriority===RECOVERY.priority);button.disabled=locked;});
+  crewRange.disabled=locked;crewRange.value=String(RECOVERY.crews);crewCount.textContent=String(RECOVERY.crews);
+  planHint.textContent=RECOVERY.priority==='homes'?'Homes and displaced families are restored before city systems.':RECOVERY.priority==='systems'?'Essential shelters, care, warnings and command systems are restored first.':'Balanced crews restore essential systems and homes in parallel.';
+  const running=!!S&&S.done&&!S.silent;
+  if(!running){summary.textContent='Complete a crisis simulation to assess damage and begin restoring the city.';homes.textContent='—';systems.textContent='—';action.disabled=true;action.textContent='Run a crisis first';progress.style.width='0%';progressText.textContent='0% restored';steps.forEach((el,i)=>recoveryStepStyle(el,i===0,false));return;}
+  const stage=RECOVERY.stage,homeCount=RECOVERY.targets.filter(target=>target.kind==='house').length,systemCount=RECOVERY.targets.filter(target=>target.kind==='system').length;
+  const percent=RECOVERY.total?Math.round(RECOVERY.restored/RECOVERY.total*100):(stage==='repaired'||stage==='verified'?100:0);
+  homes.textContent=String(homeCount);systems.textContent=String(systemCount);progress.style.width=`${percent}%`;progressText.textContent=`${percent}% restored`;
+  const stageIndex={assessed:0,dispatched:1,restoring:2,repaired:3,verified:3}[stage]??0;
+  steps.forEach((el,i)=>recoveryStepStyle(el,i===stageIndex,stage==='verified'?i<4:i<stageIndex));
+  if(stage==='assessed'){summary.textContent=`${homeCount.toLocaleString()} homes and ${systemCount} city systems need attention. Choose a priority and crew count, then dispatch.`;action.textContent='Dispatch recovery crews';action.disabled=false;}
+  else if(stage==='dispatched'){const seconds=Math.max(.2,Math.ceil(RECOVERY.total/(RECOVERY.crews*8))*.22).toFixed(1);summary.textContent=`${RECOVERY.crews} crews are ready. ${RECOVERY.priority==='homes'?'Homes first':RECOVERY.priority==='systems'?'Essential systems first':'Balanced repairs'} · estimated ${seconds}s. Start phased repairs.`;action.textContent=RECOVERY.total?'Start restoration':'Restore essential services';action.disabled=false;}
+  else if(stage==='restoring'){summary.textContent=`Repair crews are restoring the city: ${RECOVERY.restored.toLocaleString()} of ${RECOVERY.total.toLocaleString()} affected assets are back in service.`;action.textContent='Restoring…';action.disabled=true;}
+  else if(stage==='repaired'){summary.textContent='Repair work is complete. Verify the restored homes and city systems before closing the response.';action.textContent='Verify restoration';action.disabled=false;}
+  else if(stage==='verified'){summary.textContent='Ithaca is back in service. The original crisis impact remains in the event log and run summary.';action.textContent='Restoration complete';action.disabled=true;}
+  else{summary.textContent='Damage assessment is ready. Dispatch recovery crews to begin the return.';action.textContent='Dispatch recovery crews';action.disabled=false;}
+}
+function resetRecoveryFlow(){
+  clearInterval(RECOVERY.timer);RECOVERY.stage='idle';RECOVERY.runKey=null;RECOVERY.timer=null;RECOVERY.targets=[];RECOVERY.cursor=0;RECOVERY.total=0;RECOVERY.restored=0;RECOVERY.priority='balanced';RECOVERY.crews=3;
+  const panel=document.getElementById('recoveryModePanel'),button=document.getElementById('recoveryModeToggle');
+  if(panel){panel.classList.add('hidden');panel.setAttribute('aria-hidden','true');}
+  if(button){button.setAttribute('aria-expanded','false');button.setAttribute('aria-label','Open recovery operations');button.querySelector('span:last-child').textContent='Recover';}
+  if(document.getElementById('recoverySummary'))renderRecoveryPanel();
+}
+function assessRecovery(){
+  if(!S||!S.done||S.silent)return;
+  if(RECOVERY.runKey===S.startedAt)return;
+  RECOVERY.runKey=S.startedAt;RECOVERY.stage='assessed';RECOVERY.targets=[];RECOVERY.cursor=0;RECOVERY.restored=0;
+  for(let i=0;i<N;i++)if(S.hs[i]!==HS.ok)RECOVERY.targets.push({kind:'house',id:i});
+  for(const system of SYS)if(system.status!=='ok'||system.blocked)RECOVERY.targets.push({kind:'system',id:system.id});
+  RECOVERY.total=RECOVERY.targets.length;renderRecoveryPanel();
+}
+function restoreHouse(i){
+  S.hs[i]=HS.ok;
+  IM.forEach((mesh,k)=>{
+    const matrixOffset=i*16,colorOffset=i*3;
+    mesh.instanceMatrix.array.set(SNAP[k].x.subarray(matrixOffset,matrixOffset+16),matrixOffset);
+    mesh.instanceColor.array.set(SNAP[k].c.subarray(colorOffset,colorOffset+3),colorOffset);
+    mesh.instanceMatrix.needsUpdate=mesh.instanceColor.needsUpdate=true;
+  });
+}
+function restoreSystem(id){
+  const system=SYS.find(item=>item.id===id);if(!system)return;
+  system.status='ok';system.blocked=false;system.overrun=false;system.load=0;system.careLoad=0;
+  if(system.care0!=null)system.care=system.care0;
+  if(system.cap0!=null)system.shelterCap=system.cap0;
+  if(system.garrison0!=null)system.garrison=system.garrison0;
+  if(system.site)system.site.roofs.forEach(roof=>roof.visible=true);
+  if(system.p?.meshes)system.p.meshes.forEach(mesh=>{if(ROOF_MATS.includes(mesh.material))mesh.visible=true;});
+}
+function orderRecoveryTargets(){
+  const homes=RECOVERY.targets.filter(target=>target.kind==='house'),systems=RECOVERY.targets.filter(target=>target.kind==='system');
+  const essentiality=id=>{const system=SYS.find(item=>item.id===id);if(!system)return 0;return(system.care||0)+(system.shelterCap||0)*.1+(system.kind==='tower'?80:0)+(system.kind==='harbor'?40:0);};
+  systems.sort((a,b)=>essentiality(b.id)-essentiality(a.id));
+  if(RECOVERY.priority==='homes'){
+    homes.sort((a,b)=>Number(S.evac[b.id])-Number(S.evac[a.id]));return homes.concat(systems);
+  }
+  if(RECOVERY.priority==='systems')return systems.concat(homes);
+  const balanced=[];for(let i=0;i<Math.max(homes.length,systems.length);i++){if(systems[i])balanced.push(systems[i]);if(homes[i])balanced.push(homes[i]);}return balanced;
+}
+function runRecoveryAction(){
+  if(!S||!S.done||S.silent)return;
+  if(RECOVERY.stage==='assessed'){
+    RECOVERY.stage='dispatched';RECOVERY.targets=orderRecoveryTargets();ev(S.tick,`${RECOVERY.crews} repair crews are dispatched with a ${RECOVERY.priority==='homes'?'homes-first':RECOVERY.priority==='systems'?'essential-systems-first':'balanced'} plan.`,'crew',S.src);renderRecoveryPanel();return;
+  }
+  if(RECOVERY.stage==='dispatched'){
+    RECOVERY.stage='restoring';RECOVERY.cursor=0;RECOVERY.restored=0;renderRecoveryPanel();
+    if(!RECOVERY.total){RECOVERY.stage='repaired';renderRecoveryPanel();return;}
+    RECOVERY.timer=setInterval(()=>{
+      const end=Math.min(RECOVERY.cursor+RECOVERY.crews*8,RECOVERY.targets.length);
+      for(;RECOVERY.cursor<end;RECOVERY.cursor++){
+        const target=RECOVERY.targets[RECOVERY.cursor];
+        if(target.kind==='house')restoreHouse(target.id);else restoreSystem(target.id);
+      }
+      RECOVERY.restored=RECOVERY.cursor;updateHUD();if(typeof updateGraph==='function')updateGraph(true);renderRecoveryPanel();
+      if(RECOVERY.cursor>=RECOVERY.targets.length){clearInterval(RECOVERY.timer);RECOVERY.timer=null;RECOVERY.stage='repaired';ev(S.tick,`Repair crews restored ${RECOVERY.targets.filter(target=>target.kind==='house').length.toLocaleString()} homes and ${RECOVERY.targets.filter(target=>target.kind==='system').length} city systems.`,'good',S.src);renderRecoveryPanel();}
+    },220);
+    return;
+  }
+  if(RECOVERY.stage==='repaired'){
+    RECOVERY.stage='verified';FIRE.clear();SMOKE.clear();flows.fill(null);FA.fill(0);flowG.attributes.aAlpha.needsUpdate=true;AA.fill(0);armyG.attributes.aAlpha.needsUpdate=true;clearArcs();
+    PALACES.forEach(p=>p.meshes.forEach(mesh=>{if(mesh.userData.mat0){mesh.material.dispose();mesh.material=mesh.userData.mat0;mesh.userData.mat0=null;}mesh.visible=true;}));
+    ships.forEach(ship=>{ship.position.copy(ship.userData.base);ship.rotation.y=ship.userData.rot;ship.userData.burn=0;ship.userData.sink=0;ship.userData.tilt=0;ship.userData.rough=0;});WEATHER.target=0;
+    palLight.intensity=0;clusterLights.forEach(light=>light.intensity=0);SHAKE.amp=0;S.level=0;WL=0;ENEMY.forEach(group=>scene.remove(group));ENEMY.length=0;
+    ev(S.tick,'Restoration verified — Ithaca’s homes and essential systems are back in service.','good',S.src);updateHUD();if(typeof updateGraph==='function')updateGraph(true);renderRecoveryPanel();
+  }
+}
 function resetCity(silent){
   PALACES.forEach(p=>p.meshes.forEach(o=>{if(o.userData.mat0){o.material.dispose();o.material=o.userData.mat0;o.userData.mat0=null;}o.visible=true;}));
   S=null;
+  resetRecoveryFlow();
   IM.forEach((m,k)=>{m.instanceColor.array.set(SNAP[k].c);m.instanceMatrix.array.set(SNAP[k].x);m.instanceColor.needsUpdate=m.instanceMatrix.needsUpdate=true;});
   SYS.forEach(s=>{s.status='ok';s.load=0;s.careLoad=0;s.blocked=false;s.overrun=false;if(s.care0!=null)s.care=s.care0;if(s.cap0!=null)s.shelterCap=s.cap0;if(s.garrison0!=null)s.garrison=s.garrison0;if(s.site)s.site.roofs.forEach(o=>o.visible=true);});SP.forEach((s,i)=>{s.garrison=PAL_G[i];s.shelterCap=0;});
   FIRE.clear();SMOKE.clear();flows.fill(null);FA.fill(0);flowG.attributes.aAlpha.needsUpdate=true;AA.fill(0);armyG.attributes.aAlpha.needsUpdate=true;clearArcs();
@@ -1787,6 +1918,13 @@ function toggleRightPanel(force){
   const panel=document.getElementById('rightPanel'),button=document.getElementById('rightPanelToggle');
   const open=force??panel.classList.contains('hidden');panel.classList.toggle('hidden',!open);panel.classList.toggle('flex',open);
   panel.setAttribute('aria-hidden',String(!open));button.setAttribute('aria-expanded',String(open));button.setAttribute('aria-label',open?'Close intelligence panel':'Open intelligence panel');button.innerHTML=lucideIcon(open?'x':'menu',20);
+  if(open)toggleRecoveryDrawer(false);
+}
+function toggleRecoveryDrawer(force){
+  const panel=document.getElementById('recoveryModePanel'),button=document.getElementById('recoveryModeToggle');
+  const open=force??panel.classList.contains('hidden');panel.classList.toggle('hidden',!open);panel.setAttribute('aria-hidden',String(!open));
+  button.setAttribute('aria-expanded',String(open));button.setAttribute('aria-label',open?'Close recovery operations':'Open recovery operations');button.querySelector('span:last-child').textContent=open?'Close':'Recover';
+  if(open){toggleRightPanel(false);renderRecoveryPanel();}
 }
 async function loadDevelopmentPlan(){
   try{
@@ -1917,6 +2055,7 @@ function updateDev(){
     `<div class="sysrow"><span class="dot" style="background:#cbb68a"></span><span class="nm">${PLOTS.filter(p=>!p.used).length} surveyed plots free</span><span class="st text-stone-400">of ${PLOTS.length}</span></div>`;
 }
 function setMode(mode){
+  const previousMode=ACTIVE_MODE;ACTIVE_MODE=mode;
   DEV.on=mode==='dev';
   document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
   document.getElementById('simPanel').classList.toggle('hidden',DEV.on);document.getElementById('devPanel').classList.toggle('hidden',!DEV.on);
@@ -1924,12 +2063,16 @@ function setMode(mode){
   document.getElementById('sysTitle').textContent='Ithaca\'s infrastructure';
   DEV.dirty=true;
   if(DEV.on){if(S)resetCity(true);document.body.classList.remove('sim-on');renderDevFeed();renderStress();}
-  else{applyView();resetCity(false);}
+  else{applyView();if(previousMode!==mode)resetCity(false);}
   applyView();updateHUD();if(typeof renderInsight==='function')renderInsight(true);if(!DEV.on&&typeof schedulePreview==='function')schedulePreview();
 }
 document.getElementById('rightPanelToggle').onclick=()=>toggleRightPanel();
-document.addEventListener('keydown',event=>{if(event.key==='Escape')toggleRightPanel(false);});
+document.getElementById('recoveryModeToggle').onclick=()=>toggleRecoveryDrawer();
+document.getElementById('recoveryAction').onclick=runRecoveryAction;
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){toggleRightPanel(false);toggleRecoveryDrawer(false);}});
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+document.querySelectorAll('[data-recovery-priority]').forEach(button=>button.onclick=()=>{if(RECOVERY.stage!=='assessed')return;RECOVERY.priority=button.dataset.recoveryPriority;renderRecoveryPanel();});
+document.getElementById('recoveryCrews').oninput=event=>{RECOVERY.crews=Number(event.target.value);renderRecoveryPanel();};
 ['hospital','school','base'].forEach(k=>{document.getElementById('dp_'+k).onclick=()=>devBuild(k);document.getElementById('dm_'+k).onclick=()=>devRemove(k);});
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{DEV.view=b.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('on',x===b));applyView();});
 document.getElementById('devStress').onclick=runStress;
