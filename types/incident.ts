@@ -45,4 +45,9 @@ export interface Incident {
   affectedZones: string[];
   estimatedImpact: ImpactEstimate;
   incidentStatus: IncidentStatus;
+  /** Root cause, e.g. "Transformer overload". Present on seeded and logged incidents. */
+  cause?: string;
+  /** Minutes from start until the failed asset was restored and verified. */
+  durationMinutes?: number;
+  resolvedAt?: string;
 }

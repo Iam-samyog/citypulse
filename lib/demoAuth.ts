@@ -2,7 +2,13 @@ const SESSION_COOKIE = "citypulse_demo_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 function secret() {
-  return process.env.DEMO_SESSION_SECRET ?? process.env.DEMO_PASSWORD ?? "";
+  const configured = process.env.DEMO_SESSION_SECRET || process.env.DEMO_PASSWORD;
+  if (configured) return configured;
+  // Local development without any DEMO_* variables uses the built-in default login, so it
+  // needs a built-in signing key too — otherwise the session cookie is signed with an empty
+  // key, comes out unsigned, and the middleware rejects it right after a successful login.
+  // Production never gets this fallback: it must set DEMO_SESSION_SECRET.
+  return process.env.NODE_ENV === "production" ? "" : "oracle-of-ithaca-local-dev-session-key";
 }
 
 function toBase64Url(value: Uint8Array) {

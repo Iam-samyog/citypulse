@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "node --env-file=.env.local -r tsx/cjs scripts/seed.ts",
+    "seed:demo": "node --env-file-if-exists=.env.local --env-file-if-exists=.env -r tsx/cjs scripts/seed-demo.ts",
     "verify:graph": "tsx scripts/verify-graph.ts"
   },
   "dependencies": {

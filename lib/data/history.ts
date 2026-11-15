@@ -26,7 +26,7 @@ export interface PastIncident {
   populationAffectedPct: number;
 }
 
-const CAUSES: Record<ComponentCategory, string[]> = {
+export const CAUSES: Record<ComponentCategory, string[]> = {
   electrical: ["Transformer overload", "Lightning strike", "Grid frequency fault", "Cable insulation failure", "Breaker trip cascade"],
   water: ["Main pipe rupture", "Pump bearing failure", "Pressure surge", "Contamination alarm", "Reservoir valve fault"],
   transit: ["Signal controller fault", "Bridge structural closure", "Road flooding", "Collision blockage", "Control-room power dip"],
@@ -35,11 +35,11 @@ const CAUSES: Record<ComponentCategory, string[]> = {
   emergency: ["Dispatch console outage", "Station power loss", "Radio relay failure", "Vehicle depot flooding"],
 };
 // Repair difficulty per category (median minutes) — mirrors how real systems differ.
-const BASE_MTTR: Record<ComponentCategory, number> = { electrical: 190, water: 260, transit: 120, comms: 95, hospital: 150, emergency: 80 };
+export const BASE_MTTR: Record<ComponentCategory, number> = { electrical: 190, water: 260, transit: 120, comms: 95, hospital: 150, emergency: 80 };
 // Months (0-11) where a category is more fragile: summer grid load, winter storms, etc.
 const SEASON: Partial<Record<ComponentCategory, number[]>> = { electrical: [5, 6, 7, 8], water: [0, 1, 11], transit: [0, 1, 2, 10, 11] };
 
-function rng(seed: number) {
+export function rng(seed: number) {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
