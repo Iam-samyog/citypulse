@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
+import { Alegreya, Metamorphous } from "next/font/google";
 import "./globals.css";
+
+const heading = Metamorphous({ subsets: ["latin"], weight: "400", variable: "--font-heading", display: "swap" });
+const alegreya = Alegreya({ subsets: ["latin"], variable: "--font-alegreya", display: "swap" });
 
 export const metadata: Metadata = {
   title: "CITYPULSE — Ithaca Operations Dashboard",
@@ -13,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${alegreya.variable} ${heading.variable}`}>
       <body suppressHydrationWarning className="font-sans antialiased">
         {children}
       </body>

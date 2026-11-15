@@ -23,6 +23,8 @@ const config: Config = {
       },
       fontFamily: {
         serif: ["Cinzel", "Georgia", "serif"],
+        heading: ["var(--font-heading)", "Cinzel", "Georgia", "serif"],
+        paint: ["var(--font-alegreya)", "Cormorant Garamond", "Georgia", "serif"],
         sans: ["Inter", "system-ui", "sans-serif"],
       },
     },

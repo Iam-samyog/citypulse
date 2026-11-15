@@ -19,3 +19,62 @@ body {
   border-style: solid;
   border-color: var(--color-gold);
 }
+
+/* Oil-painting backdrop for the operations dashboard: stormy sky, break of
+   golden light, teal sea and rust-red cloth, with horizontal brush streaks. */
+.painting {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 42% at 50% 62%, rgba(255, 196, 92, .75), transparent 70%),
+    radial-gradient(ellipse 45% 40% at 95% 80%, rgba(190, 40, 30, .6), transparent 70%),
+    radial-gradient(ellipse 45% 40% at 2% 90%, rgba(150, 45, 30, .55), transparent 70%),
+    linear-gradient(180deg, #3a1a2a 0%, #8a2f35 18%, #d2562f 36%, #f0903a 52%, #b8412a 70%, #4a1a1c 100%);
+}
+.painting::before {
+  content: ""; position: absolute; inset: 0; mix-blend-mode: overlay; opacity: .6;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='900'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.006 .04' numOctaves='5' seed='7'/><feColorMatrix values='0 0 0 0 .95  0 0 0 0 .88  0 0 0 0 .72  0 0 0 1.6 -.55'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 900px 900px;
+}
+.painting::after {
+  content: ""; position: absolute; inset: 0;
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>"),
+    radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(20, 5, 4, .3) 100%);
+  opacity: .9;
+}
+
+main.font-paint { text-shadow: 0 1px 10px rgba(0, 0, 0, .6); }
+@media print { main.font-paint { text-shadow: none; } }
+main.font-paint button, main.font-paint a { text-shadow: none; }
+
+.torch-flame { transform-origin: 20px 44px; animation: torch-flicker 1.3s ease-in-out infinite alternate; }
+@keyframes torch-flicker {
+  0% { transform: scale(1, .93) skewX(-2deg); }
+  50% { transform: scale(.97, 1.05) skewX(1.5deg); }
+  100% { transform: scale(1.03, .97) skewX(-1deg); }
+}
+@media (prefers-reduced-motion: reduce) { .torch-flame { animation: none; } }
+
+/* Parchment-scroll button: aged paper with rolled, turned-wood ends. */
+.scroll-btn {
+  position: relative; display: inline-block; margin: 0 10px; padding: .6rem 1.6rem; border-radius: 3px;
+  font-weight: 700; color: #2a1707; cursor: pointer; text-align: center;
+  background:
+    linear-gradient(90deg, rgba(70, 40, 14, .55), transparent 16%, transparent 84%, rgba(70, 40, 14, .55)),
+    linear-gradient(180deg, rgba(70, 40, 14, .4), transparent 22%, transparent 78%, rgba(70, 40, 14, .45)),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 .45  0 0 0 0 .3  0 0 0 0 .12  0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>"),
+    #b98f55;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .45);
+  transition: transform .15s, filter .15s;
+}
+.scroll-btn:hover { transform: translateY(-1px); filter: brightness(1.07); }
+.scroll-btn::before, .scroll-btn::after {
+  content: ""; position: absolute; top: -5px; bottom: -5px; width: 15px; border-radius: 8px;
+  background:
+    radial-gradient(ellipse 100% 6px at 50% 0, #2e1d0b 60%, transparent 62%),
+    radial-gradient(ellipse 100% 6px at 50% 100%, #2e1d0b 60%, transparent 62%),
+    linear-gradient(90deg, #4d3418, #b78a4c 42%, #8a6330 68%, #3d2a12);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .45);
+}
+.scroll-btn::before { left: -9px; }
+.scroll-btn::after { right: -9px; }
