@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -61,6 +62,7 @@ export function AdminDashboard() {
   const [range, setRange] = useState<"24h" | "7d" | "30d">("24h");
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState("");
+  const [sendingAlert, setSendingAlert] = useState(false);
   const [prefs, setPrefs] = useState({ autoRefresh: true, compact: false, alerts: true });
   const menuRef = useRef<HTMLDivElement>(null);
   const [dataSource, setDataSource] = useState<"loading" | "mongodb" | "fixture">("loading");
@@ -206,6 +208,127 @@ export function AdminDashboard() {
   }
   const printReport = () => { setMenu(false); setTimeout(() => window.print(), 50); };
 
+  // Send a citywide emergency alert, regardless of the currently selected district.
+  const handleSendAlert = async () => {
+    if (sendingAlert) return;
+
+    const citywideActiveIncidents = incidents.filter(
+      (incident) => incident.incidentStatus !== "resolved"
+    );
+
+    if (citywideActiveIncidents.length === 0) {
+      setToast("No active incidents to broadcast.");
+      return;
+    }
+
+    const affectedComponentIds = new Set(
+      citywideActiveIncidents.map((incident) => incident.componentId)
+    );
+
+    const affectedComponents = components
+      .filter((component) => affectedComponentIds.has(component.id))
+      .map((component) => ({
+        id: component.id,
+        name: component.name,
+        category: component.category,
+        district: component.district,
+        status: component.status,
+        criticality: component.criticality,
+      }));
+
+    const citywideSummary = {
+      totalPopulation: districts.reduce(
+        (total, item) => total + item.population,
+        0
+      ),
+      totalInfrastructureAssets: components.length,
+      offlineAssets: components.filter(
+        (component) => component.status === "offline"
+      ).length,
+      degradedAssets: components.filter(
+        (component) => component.status === "degraded"
+      ).length,
+      activeIncidentCount: citywideActiveIncidents.length,
+    };
+
+    const payload = {
+      source: "CITYPULSE" as const,
+      scope: "citywide" as const,
+      city: "Ithaca",
+      generatedAt: new Date().toISOString(),
+      summary: citywideSummary,
+      incidents: citywideActiveIncidents.map((incident) => {
+        const component = components.find(
+          (item) => item.id === incident.componentId
+        );
+
+        return {
+          incidentId: incident.incidentId,
+          type: incident.incidentType,
+          severity: incident.severity,
+          status: incident.incidentStatus,
+          componentId: incident.componentId,
+          componentName: component?.name,
+          district: component?.district,
+          startedAt: incident.startTime,
+          affectedDistricts: incident.estimatedImpact.affectedDistricts,
+          downstreamAffectedCount:
+            incident.estimatedImpact.downstreamAffectedCount,
+        };
+      }),
+      affectedInfrastructure: affectedComponents,
+    };
+
+    try {
+      setSendingAlert(true);
+      setToast("Generating emergency announcement...");
+
+      const response = await fetch("/api/alerts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Failed to process emergency alert."
+        );
+      }
+
+      const delivery = result.delivery;
+
+      if (!delivery) {
+        throw new Error("No delivery report was returned.");
+      }
+
+      if (delivery.failedRecipients > 0) {
+        setToast(
+          `Alert partially delivered: ${delivery.textDelivered}/${delivery.totalRecipients} texts, ${delivery.audioDelivered}/${delivery.totalRecipients} audio messages.`
+        );
+      } else {
+        setToast(
+          `Emergency alert delivered: ${delivery.textDelivered} texts and ${delivery.audioDelivered} audio messages.`
+        );
+      }
+
+      console.log("CITYPULSE alert delivery report:", result);
+    } catch (error) {
+      console.error("CITYPULSE alert error:", error);
+
+      setToast(
+        error instanceof Error
+          ? error.message
+          : "Failed to send emergency alert."
+      );
+    } finally {
+      setSendingAlert(false);
+    }
+  };
+
   return (
     <main className="relative isolate min-h-screen font-paint text-[#f3ead6] lg:pl-[248px] print:pl-0 print:bg-white print:text-black">
       <div aria-hidden className="painting print:hidden" />
@@ -250,7 +373,7 @@ export function AdminDashboard() {
             <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(20,8,6,.85)_0%,rgba(20,8,6,.5)_38%,transparent_62%),linear-gradient(0deg,rgba(20,8,6,.6)_0%,transparent_45%)]" />
           </div>
           <div className="relative"><p className="text-[12px] font-semibold uppercase tracking-[.2em] text-[#e4aa56]">{active === "Overview" ? "System overview" : active}</p><h1 className={`font-heading mt-2 max-w-[600px] text-3xl font-normal leading-[1.15] text-white sm:text-[2.75rem]`}>{title}</h1><div className="mt-4 h-px w-24 bg-gradient-to-r from-[#e4aa56] to-transparent" /><p className="mt-3 max-w-[460px] text-sm text-[#efe5cc]/85">Showing {district ?? "all of Ithaca"}: {population.toLocaleString("en-US")} residents, {scoped.length} monitored assets.</p></div>
-          <div className="relative flex gap-2 print:hidden">
+          <div className="relative flex flex-wrap gap-2 print:hidden">
             <div className="relative" ref={menuRef}>
               <button onClick={() => setMenu((v) => !v)} className="scroll-btn text-sm">Export report ▾</button>
               {menu && <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[#c9a24b]/40 bg-[#1c0e0b] text-xs text-white shadow-2xl">
@@ -258,6 +381,17 @@ export function AdminDashboard() {
                 <button onClick={printReport} className="block w-full border-t border-[#c9a24b]/25 px-4 py-3 text-left hover:bg-white/10">Print / Save as PDF<span className="block text-[11px] text-[#d8ccb0]/70">Current view</span></button>
               </div>}
             </div>
+
+            <button
+              type="button"
+              onClick={handleSendAlert}
+              disabled={sendingAlert}
+              className="scroll-btn text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="mr-2 inline-block h-2 w-2 rounded-full bg-red-400 animate-pulse" />
+              {sendingAlert ? "Sending..." : "Send Alert"}
+            </button>
+
             <Link href="/city" className="scroll-btn text-sm">View virtual city</Link>
           </div>
         </section>
