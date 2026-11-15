@@ -32,6 +32,8 @@ const THEME = {
     placeholder: "Ask Athena a question…",
     thinking: "Athena is thinking…",
     tag: "Instant insight · computed from live data",
+    plate: "Athena's Counsel",
+    plateBg: "#6b0f1a",
   },
   oracle: {
     name: "The Oracle",
@@ -42,6 +44,8 @@ const THEME = {
     placeholder: "Ask the Oracle what lies ahead…",
     thinking: "The Oracle gazes into the smoke…",
     tag: "Instant foresight · modelled from live data and the simulated record",
+    plate: "The Oracle's Vision",
+    plateBg: "#35205f",
   },
 } as const;
 
@@ -128,8 +132,8 @@ export function ChatbotWidget({ agent = "athena", getContext, quickPrompts }: Ch
     }
   }
 
-  const bubble = "relative mb-2 rounded-2xl rounded-bl-sm border border-[#b98a4a]/60 bg-[#fff4d6]/90 p-4 font-heading text-base font-normal leading-7 text-black";
-  const tail = <span aria-hidden className="absolute -left-2 bottom-3 h-4 w-4 rotate-45 border-b border-l border-[#b98a4a]/60 bg-[#fff4d6]" />;
+  const bubble = "relative mb-2 rounded-2xl rounded-bl-sm border border-[#8a5a1f]/70 bg-[linear-gradient(180deg,#fbf0cf,#f1dfae)] p-4 font-heading text-base font-normal leading-7 text-black shadow-[0_6px_16px_rgba(60,30,10,.35),inset_0_0_0_2px_rgba(253,245,220,.7)]";
+  const tail = <span aria-hidden className="absolute -left-2 bottom-3 h-4 w-4 rotate-45 border-b border-l border-[#8a5a1f]/70 bg-[#f4e4b6]" />;
 
   return (
     <section
@@ -164,17 +168,31 @@ export function ChatbotWidget({ agent = "athena", getContext, quickPrompts }: Ch
         )}
 
         {messages.map((message) => message.role === "user" ? (
-          <div key={message.id} className="ml-auto max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-[#b98a4a]/60 bg-[#fff4d6]/90 p-4 font-heading text-base font-normal leading-7 text-black">
+          <div key={message.id} className="ml-auto max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-[#8a5a1f]/70 bg-[linear-gradient(180deg,#fbf0cf,#f1dfae)] p-4 font-heading text-base font-normal leading-7 text-black shadow-[0_5px_14px_rgba(60,30,10,.3),inset_0_0_0_2px_rgba(253,245,220,.7)]">
             {message.content}
           </div>
         ) : (
           <div key={message.id} className="flex items-end gap-3">
             <Avatar agent={agent} size="lg" />
-            <div className={`${bubble} ${message.charts ? "w-full max-w-[min(100%,720px)]" : "max-w-[80%]"} whitespace-pre-wrap`}>
+            <div className={`${bubble} ${message.charts ? "w-full max-w-[min(100%,760px)]" : "max-w-[80%]"} whitespace-pre-wrap`}>
               {tail}
-              {message.content}
+              {message.charts && (
+                <div className="-mx-4 -mt-4 mb-4 flex items-center gap-3 rounded-t-[15px] px-4 py-2 font-sans" style={{ background: t.plateBg }}>
+                  <span aria-hidden className="text-[12px] text-[#e4aa56]">❖</span>
+                  <span className="text-[12px] font-bold uppercase tracking-[.24em] text-[#f6e6c4]">{t.plate}</span>
+                  <span aria-hidden className="h-[10px] flex-1" style={{ backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='10' viewBox='0 0 22 10'><path d='M0 9H16V1H5V6H11V4' fill='none' stroke='%23e4aa56' stroke-width='1.3' stroke-opacity='.65'/></svg>\")", backgroundRepeat: "repeat-x", backgroundSize: "22px 10px" }} />
+                </div>
+              )}
+              <p className={message.charts ? "text-[19px] leading-8" : ""}>{message.content}</p>
+              {message.charts && (
+                <div aria-hidden className="my-4 flex items-center gap-3 text-[#8a5a1f]">
+                  <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#8a5a1f]/60" />
+                  <span className="text-[13px]">❦</span>
+                  <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#8a5a1f]/60" />
+                </div>
+              )}
               {message.charts && <ChatCharts charts={message.charts} />}
-              {message.instant && <p className="mt-3 border-t border-[#b98a4a]/40 pt-2 font-sans text-[10px] uppercase tracking-[.16em] text-[#6b4a22]">{t.tag}</p>}
+              {message.instant && <p className="mt-4 flex items-center gap-2 font-sans text-[11px] uppercase tracking-[.16em] text-[#6b4a22]"><span aria-hidden className="text-[#8f1424]">❦</span>{t.tag}</p>}
             </div>
           </div>
         ))}
