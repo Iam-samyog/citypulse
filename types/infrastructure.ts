@@ -1,58 +1,65 @@
-export type InfrastructureCategory =
-  | "electricity"
+export type ComponentCategory =
+  | "electrical"
   | "water"
-  | "transportation"
-  | "communication"
+  | "transit"
+  | "comms"
   | "hospital"
-  | "emergency"
-  | "residential"
-  | "commercial";
+  | "emergency";
 
-export type OperationalStatus =
-  | "operational"
-  | "degraded"
-  | "at_risk"
-  | "failed"
-  | "repairing"
-  | "restored";
+/**
+ * operational: fully supplied by its upstream dependencies.
+ * backup:      fully supplied, but only because local backup is in use.
+ * degraded:    partially supplied (service level 50–90%).
+ * offline:     failed outright, or supplied below 50%.
+ */
+export type ComponentStatus = "operational" | "degraded" | "offline" | "backup";
 
-export type Criticality = "low" | "medium" | "high" | "critical";
+export type Criticality = 1 | 2 | 3 | 4 | 5;
 
-export interface GeoPosition {
+export type DependencyType =
+  | "power_supply"
+  | "water_supply"
+  | "data_link"
+  | "control_signal"
+  | "road_access";
+
+export interface Coordinates {
   x: number;
   y: number;
   z: number;
 }
 
 export interface InfrastructureComponent {
-  componentId: string;
+  id: string;
   name: string;
-  category: InfrastructureCategory;
-  location: GeoPosition;
+  category: ComponentCategory;
   district: string;
-  capacity: number;
-  currentCapacity: number;
-  requiredInputCapacity: number;
-  backupCapacity: number;
-  operationalThreshold: number;
-  operationalStatus: OperationalStatus;
+  coordinates: Coordinates;
+  /** Most service this component can deliver downstream, in capacity units. */
+  maxCapacity: number;
+  /** Capacity currently being drawn from it under normal operation. */
+  currentLoad: number;
+  /** Local reserve (generator, battery, cistern) that can stand in for a lost dependency. */
+  backupCapacityRemaining: number;
+  status: ComponentStatus;
   criticality: Criticality;
-  connectedComponentIds: string[];
-  recoveryRequirements?: string[];
 }
 
-export type DependencyType =
-  | "power_supply"
-  | "water_supply"
-  | "data_link"
-  | "road_access"
-  | "control_signal";
-
+/** Directed edge: `targetId` depends on `sourceId`. */
 export interface InfrastructureDependency {
-  sourceComponentId: string;
-  targetComponentId: string;
+  id: string;
+  sourceId: string;
+  targetId: string;
   dependencyType: DependencyType;
+  /** Capacity this edge delivers to the target under normal operation. */
   requiredCapacity: number;
-  dependencyStrength: number; // 0..1, how critical the link is
+  /** True when the target may cover a shortfall on this edge from its own backup reserve. */
   hasBackup: boolean;
+}
+
+export interface District {
+  name: string;
+  population: number;
+  character: string;
+  center: Coordinates;
 }

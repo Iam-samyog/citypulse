@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getDb, collections } from "@/lib/mongodb";
-import { InfrastructureGraph } from "@/lib/simulation/graph";
-import { applyRepair } from "@/lib/simulation/recoveryEngine";
-import type {
-  InfrastructureComponent,
-  InfrastructureDependency,
-} from "@/types/infrastructure";
-import type { RepairOperation, RepairStage } from "@/types/recovery";
+import { loadFailedComponentIds, loadGraph, saveStatuses } from "@/lib/infrastructureStore";
+import { applyRepair, isRepairComplete } from "@/lib/simulation/recoveryEngine";
+import type { Incident } from "@/types/incident";
+import type { RepairOperation, RepairStage, VerificationStatus } from "@/types/recovery";
 
 interface RecoveryRequestBody {
   incidentId: string;
@@ -15,23 +12,39 @@ interface RecoveryRequestBody {
   assignedCrew: string;
   repairStatus: RepairStage;
   estimatedCompletion: string;
-  verificationStatus?: "pending" | "verified" | "failed_verification";
-  repairId?: string; // pass to update an existing repair instead of creating one
+  verificationStatus?: VerificationStatus;
+  /** Pass to advance an existing repair instead of creating one. */
+  repairId?: string;
 }
 
 /**
  * POST /api/recovery
- * Creates or advances a repair operation. When repairStatus is "restored"
- * and verificationStatus is "verified", re-runs the recovery engine and
- * persists the resulting component states (cascading restoration).
- *
- * Member 2 (Simulation) / Member 4 (Backend): integration point for the
- * Chapter V "Return to Ithaca" workflow.
+ * Creates or advances a repair operation. Only the component that failed
+ * at source needs repairing: once its repair is restored and verified the
+ * incident closes and everything downstream is recalculated from its own
+ * supply. Repairs logged against downstream components are tracked but do
+ * not change the network.
  */
 export async function POST(request: Request) {
   const body = (await request.json()) as RecoveryRequestBody;
+  if (!body.incidentId || !body.componentId || !body.repairStatus) {
+    return NextResponse.json(
+      { error: "incidentId, componentId and repairStatus are required" },
+      { status: 400 }
+    );
+  }
 
   const db = await getDb();
+  const incidents = db.collection<Incident>(collections.incidents);
+  const incident = await incidents.findOne({ incidentId: body.incidentId });
+  if (!incident) {
+    return NextResponse.json({ error: "Incident not found" }, { status: 404 });
+  }
+
+  const graph = await loadGraph(db);
+  if (!graph.getComponent(body.componentId)) {
+    return NextResponse.json({ error: `Unknown component: ${body.componentId}` }, { status: 404 });
+  }
 
   const repair: RepairOperation = {
     repairId: body.repairId ?? randomUUID(),
@@ -48,23 +61,19 @@ export async function POST(request: Request) {
     .collection(collections.repairOperations)
     .updateOne({ repairId: repair.repairId }, { $set: repair }, { upsert: true });
 
-  const components = await db
-    .collection<InfrastructureComponent>(collections.infrastructureComponents)
-    .find({})
-    .toArray();
-  const dependencies = await db
-    .collection<InfrastructureDependency>(collections.infrastructureDependencies)
-    .find({})
-    .toArray();
-
-  const graph = new InfrastructureGraph(components, dependencies);
-  const updatedStatuses = applyRepair(graph, repair);
-
-  for (const [componentId, status] of updatedStatuses) {
-    await db
-      .collection(collections.infrastructureComponents)
-      .updateOne({ componentId }, { $set: { operationalStatus: status } });
+  const closesIncident = isRepairComplete(repair) && repair.componentId === incident.componentId;
+  if (closesIncident) {
+    await incidents.updateOne({ incidentId: incident.incidentId }, { $set: { incidentStatus: "resolved" } });
+  } else if (incident.incidentStatus === "active") {
+    await incidents.updateOne({ incidentId: incident.incidentId }, { $set: { incidentStatus: "recovering" } });
   }
 
-  return NextResponse.json({ repair, updatedStatuses: Array.from(updatedStatuses.entries()) });
+  const states = applyRepair(graph, repair, await loadFailedComponentIds(db));
+  await saveStatuses(db, states);
+
+  return NextResponse.json({
+    repair,
+    incidentResolved: closesIncident,
+    statuses: Array.from(states, ([componentId, state]) => ({ componentId, ...state })),
+  });
 }

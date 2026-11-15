@@ -1,4 +1,4 @@
-import type { OperationalStatus } from "./infrastructure";
+import type { ComponentStatus } from "./infrastructure";
 
 export type IncidentType =
   | "power_failure"
@@ -14,14 +14,19 @@ export type IncidentStatus = "active" | "contained" | "recovering" | "resolved";
 
 export interface AffectedComponentRecord {
   componentId: string;
-  previousStatus: OperationalStatus;
-  newStatus: OperationalStatus;
-  distanceFromOrigin: number; // hops in the dependency graph
+  previousStatus: ComponentStatus;
+  newStatus: ComponentStatus;
+  /** Hops from the failed component, or -1 if not downstream of it. */
+  distanceFromOrigin: number;
+  /** Share of its needs the component is still getting, 0 to 1. */
+  serviceLevel: number;
+  backupUsed: number;
 }
 
 export interface ImpactEstimate {
   directlyFailedCount: number;
   downstreamAffectedCount: number;
+  statusBreakdown: { offline: number; degraded: number; backup: number };
   affectedDistricts: string[];
   populationExposedPct: number;
   criticalFacilitiesAffected: string[];
@@ -31,10 +36,11 @@ export interface ImpactEstimate {
 
 export interface Incident {
   incidentId: string;
+  /** The component that failed at source. */
   componentId: string;
   incidentType: IncidentType;
   severity: IncidentSeverity;
-  startTime: string; // ISO timestamp
+  startTime: string;
   affectedComponents: AffectedComponentRecord[];
   affectedZones: string[];
   estimatedImpact: ImpactEstimate;

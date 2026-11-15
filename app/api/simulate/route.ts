@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getDb, collections } from "@/lib/mongodb";
-import { InfrastructureGraph } from "@/lib/simulation/graph";
+import { loadFailedComponentIds, loadGraph, saveStatuses } from "@/lib/infrastructureStore";
+import { districtPopulations } from "@/lib/seed/infrastructure";
 import { simulateFailure } from "@/lib/simulation/failureEngine";
+import { projectBackupDepletion } from "@/lib/simulation/backupDepletion";
 import { calculateImpact } from "@/lib/simulation/impactCalculator";
-import type {
-  InfrastructureComponent,
-  InfrastructureDependency,
-} from "@/types/infrastructure";
 import type { Incident, IncidentType } from "@/types/incident";
 import type { SimulationEvent } from "@/types/simulation";
 
@@ -20,17 +18,12 @@ interface SimulateRequestBody {
  * POST /api/simulate
  * Body: { componentId: string, incidentType: IncidentType }
  *
- * Triggers a failure at `componentId`, runs the deterministic failure
- * engine, persists the resulting Incident + SimulationEvents, and returns
- * the full result for the 3D scene and dashboard to render.
- *
- * Member 2 (Simulation): this is the integration point for your engine.
- * Member 4 (Backend): this is the integration point for persistence +
- * real-time broadcast (wire your WebSocket emit in here once ready).
+ * Fails `componentId` on top of any incidents still open, runs the
+ * deterministic cascade, persists the Incident and its SimulationEvents,
+ * and writes the new status of every component.
  */
 export async function POST(request: Request) {
   const body = (await request.json()) as SimulateRequestBody;
-
   if (!body.componentId || !body.incidentType) {
     return NextResponse.json(
       { error: "componentId and incidentType are required" },
@@ -39,26 +32,32 @@ export async function POST(request: Request) {
   }
 
   const db = await getDb();
+  const graph = await loadGraph(db);
+  const origin = graph.getComponent(body.componentId);
+  if (!origin) {
+    return NextResponse.json({ error: `Unknown component: ${body.componentId}` }, { status: 404 });
+  }
 
-  const components = await db
-    .collection<InfrastructureComponent>(collections.infrastructureComponents)
-    .find({})
-    .toArray();
-  const dependencies = await db
-    .collection<InfrastructureDependency>(collections.infrastructureDependencies)
-    .find({})
-    .toArray();
+  const alreadyFailed = await loadFailedComponentIds(db);
+  if (alreadyFailed.includes(origin.id)) {
+    return NextResponse.json(
+      { error: `${origin.name} already has an open incident` },
+      { status: 409 }
+    );
+  }
 
-  const graph = new InfrastructureGraph(components, dependencies);
-  const result = simulateFailure(graph, body.componentId);
-  const impact = calculateImpact(graph, body.componentId, result.affectedComponents);
+  const result = simulateFailure(graph, origin.id, alreadyFailed);
+  const failedIds = [...alreadyFailed, origin.id];
+  const backupProjection = projectBackupDepletion(graph, failedIds);
+  const impact = calculateImpact(graph, origin.id, result.states, districtPopulations);
+  const startTime = new Date().toISOString();
 
   const incident: Incident = {
     incidentId: randomUUID(),
-    componentId: body.componentId,
+    componentId: origin.id,
     incidentType: body.incidentType,
     severity: impact.severity,
-    startTime: new Date().toISOString(),
+    startTime,
     affectedComponents: result.affectedComponents,
     affectedZones: impact.affectedDistricts,
     estimatedImpact: impact,
@@ -69,35 +68,63 @@ export async function POST(request: Request) {
     {
       eventId: randomUUID(),
       incidentId: incident.incidentId,
-      componentId: body.componentId,
+      componentId: origin.id,
       eventType: "failure_triggered",
-      timestamp: incident.startTime,
-      previousState: "operational",
-      newState: "failed",
+      timestamp: startTime,
+      previousState: origin.status,
+      newState: "offline",
       simulationTimeMinutes: 0,
     },
-    ...result.affectedComponents.map((a, i) => ({
+    ...result.affectedComponents.map((affected) => ({
       eventId: randomUUID(),
       incidentId: incident.incidentId,
-      componentId: a.componentId,
+      componentId: affected.componentId,
       eventType: "component_degraded" as const,
-      timestamp: incident.startTime,
-      previousState: a.previousStatus,
-      newState: a.newStatus,
-      simulationTimeMinutes: 5 + i * 2,
+      timestamp: startTime,
+      previousState: affected.previousStatus,
+      newState: affected.newStatus,
+      // Effects arrive in waves: five minutes per hop from the origin.
+      simulationTimeMinutes: Math.max(1, affected.distanceFromOrigin) * 5,
+    })),
+    ...backupProjection.transitions.map((transition) => ({
+      eventId: randomUUID(),
+      incidentId: incident.incidentId,
+      componentId: transition.componentId,
+      eventType: transition.reason,
+      timestamp: new Date(
+        new Date(startTime).getTime() + transition.simulationTimeMinutes * 60_000
+      ).toISOString(),
+      previousState: transition.previousStatus,
+      newState: transition.newStatus,
+      simulationTimeMinutes: transition.simulationTimeMinutes,
+      backupRemaining: Math.round(transition.backupRemaining * 10) / 10,
+      detail:
+        transition.reason === "backup_warning"
+          ? "Backup reserve below 25%"
+          : transition.reason === "backup_depleted"
+            ? `Backup exhausted; service changed from ${Math.round(transition.previousServiceLevel * 100)}% to ${Math.round(transition.newServiceLevel * 100)}%`
+            : `Network rebalanced; service changed from ${Math.round(transition.previousServiceLevel * 100)}% to ${Math.round(transition.newServiceLevel * 100)}%`,
     })),
   ];
 
-  await db.collection(collections.incidents).insertOne(incident);
-  await db.collection(collections.simulationEvents).insertMany(events);
+  events.sort(
+    (a, b) =>
+      a.simulationTimeMinutes - b.simulationTimeMinutes ||
+      a.componentId.localeCompare(b.componentId)
+  );
 
-  // Persist the new statuses onto the components themselves so subsequent
-  // GET /api/infrastructure calls reflect the incident.
-  for (const [componentId, status] of result.finalStatuses) {
-    await db
-      .collection(collections.infrastructureComponents)
-      .updateOne({ componentId }, { $set: { operationalStatus: status } });
-  }
+  await db.collection(collections.incidents).insertOne({ ...incident });
+  await db.collection(collections.simulationEvents).insertMany(events.map((event) => ({ ...event })));
+  await saveStatuses(db, result.states);
 
-  return NextResponse.json({ incident, events });
+  return NextResponse.json({
+    incident,
+    events,
+    backupProjection: {
+      horizonMinutes: backupProjection.horizonMinutes,
+      stepMinutes: backupProjection.stepMinutes,
+      endurance: backupProjection.endurance,
+      transitionCount: backupProjection.transitions.length,
+    },
+  });
 }

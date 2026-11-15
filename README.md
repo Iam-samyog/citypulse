@@ -9,8 +9,8 @@ An AI-powered urban infrastructure digital twin. HackUTA submission.
 A 3D digital twin of a fictional city ("Ithaca") where infrastructure
 components (electrical substations, water pumps, hospitals, traffic
 systems...) are modeled as a dependency graph. Triggering a failure
-propagates through that graph deterministically; **Gemini** explains the
-incident, **Grok** independently critiques the recovery plan, and
+propagates through that graph deterministically; two Gemini-powered agents,
+**Athena** and **Oracle**, explain the incident and stress-test recovery, while
 **MongoDB Atlas** persists the whole incident-to-recovery lifecycle.
 
 Full product spec: [`docs/SPEC.md`](docs/SPEC.md).
@@ -21,7 +21,7 @@ one guide per member in `docs/`.
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in MONGODB_URI, GEMINI_API_KEY, GROK_API_KEY
+cp .env.example .env.local   # fill in MONGODB_URI and GEMINI_API_KEY
 npm run seed                 # loads the fixture city into MongoDB
 npm run dev
 ```
@@ -41,14 +41,14 @@ app/
     incidents/              GET incident list/detail
     recovery/                POST advance a repair
     ai/gemini/                 POST Athena's explanation
-    ai/grok/                    POST Oracle's recovery review
+    ai/oracle/                  POST Oracle's recovery review
 components/
   city/        3D scene (React Three Fiber)
   dashboard/   Incident / impact / timeline / recovery panels
-  ai/          Gemini + Grok panels
+  ai/          Athena + Oracle agent panels
 lib/
   simulation/  graph.ts, failureEngine.ts, impactCalculator.ts, recoveryEngine.ts
-  ai/          gemini.ts, grok.ts (server-only — never import from client code)
+  ai/          gemini.ts (server-only, shared model with two personas)
   seed/        fixture city data (~38 components)
   mongodb.ts   DB connection + collection names
 types/         shared TypeScript contracts — READ THESE FIRST
@@ -60,7 +60,7 @@ types/         shared TypeScript contracts — READ THESE FIRST
 |---|---|---|
 | 3D city, Odyssey visual design | Member 1 | [`docs/MEMBER_1_FRONTEND.md`](docs/MEMBER_1_FRONTEND.md) |
 | Simulation engine (graph, failure, impact, recovery) | Member 2 | [`docs/MEMBER_2_SIMULATION.md`](docs/MEMBER_2_SIMULATION.md) |
-| Gemini + Grok integration | Member 3 | [`docs/MEMBER_3_AI.md`](docs/MEMBER_3_AI.md) |
+| Athena + Oracle integration | Member 3 | [`docs/MEMBER_3_AI.md`](docs/MEMBER_3_AI.md) |
 | MongoDB, API routes, real-time | Member 4 | [`docs/MEMBER_4_BACKEND.md`](docs/MEMBER_4_BACKEND.md) |
 
 Everyone: read [`types/infrastructure.ts`](types/infrastructure.ts),

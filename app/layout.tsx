@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CITYPULSE — The Odyssey of a City",
+  title: "CITYPULSE — Ithaca Operations Dashboard",
   description:
-    "An AI-powered urban infrastructure digital twin. Every city has an Odyssey.",
+    "An operational dashboard and interactive 3D reconstruction of Ithaca in the age of Odysseus.",
 };
 
 export default function RootLayout({
@@ -14,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">{children}</body>
+      <body suppressHydrationWarning className="font-sans antialiased">
+        {children}
+      </body>
     </html>
   );
 }

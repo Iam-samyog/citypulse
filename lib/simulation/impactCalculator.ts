@@ -1,89 +1,80 @@
-import type { InfrastructureComponent } from "@/types/infrastructure";
-import type { AffectedComponentRecord, ImpactEstimate, IncidentSeverity } from "@/types/incident";
+import type { ComponentStatus } from "@/types/infrastructure";
+import type { ImpactEstimate, IncidentSeverity } from "@/types/incident";
+import type { ComponentState } from "./failureEngine";
 import { InfrastructureGraph } from "./graph";
 
+/** How much of a district's service one component in this state takes away. */
+const EXPOSURE_WEIGHT: Record<ComponentStatus, number> = {
+  operational: 0,
+  backup: 0.25,
+  degraded: 0.5,
+  offline: 1,
+};
+
 /**
- * Translates a raw failure-propagation result into the human-readable
- * impact estimate shown in the dashboard and handed to the AI layer.
- *
- * These numbers are derived entirely from the simulated city model — they
- * are illustrative, not real municipal data (see project README).
+ * Turns the engine's component states into the numbers shown to people.
+ * Population exposure is an estimate from the simulated city model: each
+ * district's residents are counted in proportion to how much of that
+ * district's infrastructure is impaired.
  */
 export function calculateImpact(
   graph: InfrastructureGraph,
   originComponentId: string,
-  affectedComponents: AffectedComponentRecord[]
+  states: Map<string, ComponentState>,
+  districtPopulations: Record<string, number>
 ): ImpactEstimate {
-  const failedOrDegraded = affectedComponents.filter(
-    (a) => a.newStatus === "failed" || a.newStatus === "degraded" || a.newStatus === "at_risk"
-  );
-
-  const directlyFailedCount = affectedComponents.filter(
-    (a) => a.distanceFromOrigin === 0 || a.componentId === originComponentId
-  ).length || 1;
-
-  const downstreamAffectedCount = failedOrDegraded.length;
-
-  const affectedComponentObjs = failedOrDegraded
-    .map((a) => graph.getComponent(a.componentId))
-    .filter((c): c is InfrastructureComponent => Boolean(c));
-
-  const affectedDistricts = Array.from(
-    new Set(affectedComponentObjs.map((c) => c.district))
-  );
-
-  const criticalFacilitiesAffected = affectedComponentObjs
-    .filter((c) => c.criticality === "critical" || c.category === "hospital")
-    .map((c) => c.componentId);
-
-  const totalResidentialCapacity = graph
+  const impaired = graph
     .allComponents()
-    .filter((c) => c.category === "residential")
-    .reduce((sum, c) => sum + c.capacity, 0);
+    .filter((c) => c.id !== originComponentId && states.get(c.id)?.status !== "operational");
 
-  const affectedResidentialCapacity = affectedComponentObjs
-    .filter((c) => c.category === "residential")
-    .reduce((sum, c) => sum + c.capacity, 0);
+  const count = (status: ComponentStatus) =>
+    impaired.filter((c) => states.get(c.id)?.status === status).length;
+  const statusBreakdown = {
+    offline: count("offline"),
+    degraded: count("degraded"),
+    backup: count("backup"),
+  };
 
+  const districtTotals = new Map<string, { components: number; exposure: number }>();
+  for (const component of graph.allComponents()) {
+    const totals = districtTotals.get(component.district) ?? { components: 0, exposure: 0 };
+    totals.components += 1;
+    totals.exposure += EXPOSURE_WEIGHT[states.get(component.id)?.status ?? "operational"];
+    districtTotals.set(component.district, totals);
+  }
+
+  let totalPopulation = 0;
+  let exposedPopulation = 0;
+  const affectedDistricts: string[] = [];
+  for (const [district, totals] of districtTotals) {
+    const population = districtPopulations[district] ?? 0;
+    totalPopulation += population;
+    exposedPopulation += population * (totals.exposure / totals.components);
+    if (totals.exposure > 0) affectedDistricts.push(district);
+  }
   const populationExposedPct =
-    totalResidentialCapacity > 0
-      ? Math.round((affectedResidentialCapacity / totalResidentialCapacity) * 1000) / 10
-      : 0;
+    totalPopulation > 0 ? Math.round((exposedPopulation / totalPopulation) * 1000) / 10 : 0;
 
-  const estimatedRecoveryMinutes = estimateRecoveryMinutes(
-    downstreamAffectedCount,
-    criticalFacilitiesAffected.length
-  );
-
-  const severity = estimateSeverity(
-    downstreamAffectedCount,
-    criticalFacilitiesAffected.length,
-    populationExposedPct
-  );
+  const criticalFacilitiesAffected = impaired
+    .filter((c) => c.criticality === 5 || (c.criticality >= 4 && (c.category === "hospital" || c.category === "emergency")))
+    .map((c) => c.id);
 
   return {
-    directlyFailedCount,
-    downstreamAffectedCount,
-    affectedDistricts,
+    directlyFailedCount: 1,
+    downstreamAffectedCount: impaired.length,
+    statusBreakdown,
+    affectedDistricts: affectedDistricts.sort(),
     populationExposedPct,
     criticalFacilitiesAffected,
-    estimatedRecoveryMinutes,
-    severity,
+    estimatedRecoveryMinutes:
+      45 + statusBreakdown.offline * 20 + statusBreakdown.degraded * 10 + statusBreakdown.backup * 5,
+    severity: estimateSeverity(statusBreakdown.offline, criticalFacilitiesAffected.length, populationExposedPct),
   };
 }
 
-function estimateRecoveryMinutes(affectedCount: number, criticalCount: number): number {
-  const base = 30;
-  return base + affectedCount * 15 + criticalCount * 30;
-}
-
-function estimateSeverity(
-  affectedCount: number,
-  criticalCount: number,
-  populationExposedPct: number
-): IncidentSeverity {
-  if (criticalCount > 0 && populationExposedPct > 25) return "critical";
-  if (criticalCount > 0 || populationExposedPct > 15) return "major";
-  if (affectedCount > 3) return "moderate";
+function estimateSeverity(offline: number, critical: number, populationExposedPct: number): IncidentSeverity {
+  if (populationExposedPct >= 30 || critical >= 5) return "critical";
+  if (populationExposedPct >= 12 || critical >= 2) return "major";
+  if (offline >= 2 || critical >= 1) return "moderate";
   return "minor";
 }

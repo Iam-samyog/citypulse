@@ -1,27 +1,29 @@
 import { NextResponse } from "next/server";
-import { getDb, collections } from "@/lib/mongodb";
-import type {
-  InfrastructureComponent,
-  InfrastructureDependency,
-} from "@/types/infrastructure";
+import { getDb } from "@/lib/mongodb";
+import { loadInfrastructure } from "@/lib/infrastructureStore";
+import {
+  districts,
+  infrastructureComponents,
+  infrastructureDependencies,
+} from "@/lib/seed/infrastructure";
 
 /**
  * GET /api/infrastructure
- * Returns every component and dependency so the client can build the
- * dependency graph and render the 3D city.
+ * Every component and dependency, plus the district table, so the client
+ * can build the dependency graph and render the 3D city.
  */
 export async function GET() {
-  const db = await getDb();
-
-  const components = await db
-    .collection<InfrastructureComponent>(collections.infrastructureComponents)
-    .find({})
-    .toArray();
-
-  const dependencies = await db
-    .collection<InfrastructureDependency>(collections.infrastructureDependencies)
-    .find({})
-    .toArray();
-
-  return NextResponse.json({ components, dependencies });
+  try {
+    const db = await getDb();
+    const { components, dependencies } = await loadInfrastructure(db);
+    return NextResponse.json({ components, dependencies, districts, source: "mongodb" });
+  } catch (error) {
+    console.warn("MongoDB unavailable; serving the deterministic city fixture.", error);
+    return NextResponse.json({
+      components: infrastructureComponents,
+      dependencies: infrastructureDependencies,
+      districts,
+      source: "fixture",
+    });
+  }
 }

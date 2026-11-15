@@ -1,30 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import type { InfrastructureCategory, InfrastructureComponent } from "@/types/infrastructure";
+import { type RefObject, useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Line, OrbitControls } from "@react-three/drei";
+import * as THREE from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import type {
+  ComponentCategory,
+  InfrastructureComponent,
+  InfrastructureDependency,
+} from "@/types/infrastructure";
 import { InfrastructureLayer } from "./InfrastructureLayer";
+import { NODE_HEIGHT } from "./InfrastructureNode";
 import { ImpactZone } from "./ImpactZone";
+import { CityDistricts } from "./CityDistricts";
+import { DependencyFlow } from "./DependencyFlow";
+import { OdysseyEnvironment } from "./OdysseyEnvironment";
+import { ALL_CATEGORIES, DEPENDENCY_COLOR } from "./componentStyles";
 
-const ALL_CATEGORIES: InfrastructureCategory[] = [
-  "electricity",
-  "water",
-  "transportation",
-  "communication",
-  "hospital",
-  "emergency",
-  "residential",
-  "commercial",
-];
-
+const UPSTREAM_COLOR = "#F3DBA7";
+const DOWNSTREAM_COLOR = "#57E1FF";
 interface CitySceneProps {
   components: InfrastructureComponent[];
+  dependencies?: InfrastructureDependency[];
   onSelectComponent?: (componentId: string) => void;
   selectedComponentId?: string | null;
   affectedComponents?: InfrastructureComponent[];
+  viewMode?: "city" | "graph";
 }
-
 /**
  * The main 3D scene: the city of Ithaca. Member 1 (3D Frontend) owns this
  * file — ground plane, district layout, camera framing, lighting, and the
@@ -34,26 +37,30 @@ interface CitySceneProps {
  */
 export function CityScene({
   components,
+  dependencies = [],
   onSelectComponent,
   selectedComponentId,
   affectedComponents = [],
+  viewMode = "city",
 }: CitySceneProps) {
-  const [visibleLayers, setVisibleLayers] = useState<Set<InfrastructureCategory>>(
-    new Set(ALL_CATEGORIES)
-  );
+  const visibleLayers = useMemo(() => new Set<ComponentCategory>(ALL_CATEGORIES), []);
+  const controlsRef = useRef<OrbitControlsImpl>(null);
+
+  const visibleDependencies = dependencies;
 
   return (
-    <div className="relative w-full h-full">
-      <Canvas camera={{ position: [250, 250, 250], fov: 50 }}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[200, 300, 100]} intensity={1} />
+    <div className="relative w-full h-full overflow-hidden bg-[#081b25]">
+      <Canvas
+        className="!absolute inset-0"
+        camera={{ position: [520, 550, 650], fov: 43, far: 5000 }}
+        shadows={viewMode === "city"}
+        dpr={[1, 1.35]}
+        gl={{ antialias: true, powerPreference: "high-performance" }}
+      >
+        <OdysseyEnvironment reduced={viewMode === "graph"} />
+        {viewMode === "city" ? <CityDistricts /> : <GraphGround />}
 
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-          <planeGeometry args={[1000, 1000]} />
-          <meshStandardMaterial color="#0B2545" />
-        </mesh>
-
-        <ImpactZone affectedComponents={affectedComponents} />
+        {viewMode === "city" && <ImpactZone affectedComponents={affectedComponents} />}
 
         {ALL_CATEGORIES.map((category) => (
           <InfrastructureLayer
@@ -66,43 +73,167 @@ export function CityScene({
           />
         ))}
 
-        <OrbitControls />
+        {viewMode === "graph" && (
+          <>
+            <DependencyLinks
+              selectedComponentId={selectedComponentId}
+              components={components}
+              dependencies={visibleDependencies}
+              visibleLayers={visibleLayers}
+              showWholeNetwork
+            />
+
+            <DependencyFlow
+              components={components}
+              dependencies={visibleDependencies}
+              selectedComponentId={selectedComponentId}
+              visibleLayers={visibleLayers}
+            />
+          </>
+        )}
+
+        <CameraDirector
+          focus={components.find((component) => component.id === selectedComponentId)}
+          controlsRef={controlsRef}
+          viewMode={viewMode}
+        />
+        <OrbitControls
+          ref={controlsRef}
+          makeDefault
+          enableDamping
+          dampingFactor={0.07}
+          minDistance={145}
+          maxDistance={1450}
+          maxPolarAngle={viewMode === "graph" ? Math.PI * 0.5 : Math.PI * 0.47}
+        />
       </Canvas>
 
-      <LayerToggles visibleLayers={visibleLayers} onChange={setVisibleLayers} />
     </div>
   );
 }
 
-function LayerToggles({
-  visibleLayers,
-  onChange,
+function GraphGround() {
+  return (
+    <group position={[0, -3, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[760, 720]} />
+        <meshStandardMaterial color="#07151d" roughness={1} metalness={0.15} />
+      </mesh>
+      <gridHelper args={[720, 24, "#266b79", "#123944"]} position={[0, 0.3, 0]} />
+    </group>
+  );
+}
+
+function CameraDirector({
+  focus,
+  controlsRef,
+  viewMode,
 }: {
-  visibleLayers: Set<InfrastructureCategory>;
-  onChange: (layers: Set<InfrastructureCategory>) => void;
+  focus?: InfrastructureComponent;
+  controlsRef: RefObject<OrbitControlsImpl | null>;
+  viewMode: "city" | "graph";
 }) {
-  function toggle(category: InfrastructureCategory) {
-    const next = new Set(visibleLayers);
-    if (next.has(category)) {
-      next.delete(category);
-    } else {
-      next.add(category);
-    }
-    onChange(next);
-  }
+  const { camera } = useThree();
+  const flight = useRef<{
+    startedAt: number;
+    fromPosition: THREE.Vector3;
+    fromTarget: THREE.Vector3;
+    toPosition: THREE.Vector3;
+    toTarget: THREE.Vector3;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!controlsRef.current) return;
+    const toTarget = viewMode === "graph"
+      ? new THREE.Vector3(0, 0, 0)
+      : focus
+        ? new THREE.Vector3(focus.coordinates.x, 25, focus.coordinates.z)
+        : new THREE.Vector3(0, 0, 0);
+    const toPosition = viewMode === "graph"
+      ? new THREE.Vector3(20, 760, 140)
+      : focus
+        ? toTarget.clone().add(new THREE.Vector3(185, 155, 210))
+        : new THREE.Vector3(520, 550, 650);
+    flight.current = {
+      startedAt: -1,
+      fromPosition: camera.position.clone(),
+      fromTarget: controlsRef.current.target.clone(),
+      toPosition,
+      toTarget,
+    };
+  }, [focus, viewMode, camera, controlsRef]);
+
+  useFrame(({ clock }) => {
+    const active = flight.current;
+    const controls = controlsRef.current;
+    if (!active || !controls) return;
+    if (active.startedAt < 0) active.startedAt = clock.elapsedTime;
+    const elapsed = (clock.elapsedTime - active.startedAt) / 1.15;
+    const t = Math.min(1, elapsed);
+    const eased = t * t * (3 - 2 * t);
+    camera.position.lerpVectors(active.fromPosition, active.toPosition, eased);
+    controls.target.lerpVectors(active.fromTarget, active.toTarget, eased);
+    controls.update();
+    if (t >= 1) flight.current = null;
+  });
+
+  return null;
+}
+/** Lines from the selected component to what it needs (gold) and what needs it (cyan). */
+function DependencyLinks({
+  selectedComponentId,
+  components,
+  dependencies,
+  visibleLayers,
+  showWholeNetwork,
+}: {
+  selectedComponentId?: string | null;
+  components: InfrastructureComponent[];
+  dependencies: InfrastructureDependency[];
+  visibleLayers: Set<ComponentCategory>;
+  showWholeNetwork: boolean;
+}) {
+  const byId = new Map(components.map((component) => [component.id, component]));
 
   return (
-    <div className="absolute top-4 left-4 bg-aegean/80 border border-gold/40 p-3 rounded text-sm space-y-1">
-      {ALL_CATEGORIES.map((category) => (
-        <label key={category} className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={visibleLayers.has(category)}
-            onChange={() => toggle(category)}
-          />
-          <span className="capitalize">{category}</span>
-        </label>
-      ))}
-    </div>
+    <group>
+      {dependencies
+        .filter(
+          (dependency) =>
+            showWholeNetwork ||
+            dependency.sourceId === selectedComponentId ||
+            dependency.targetId === selectedComponentId
+        )
+        .map((dependency) => {
+          const source = byId.get(dependency.sourceId);
+          const target = byId.get(dependency.targetId);
+          if (!source || !target) return null;
+          if (!visibleLayers.has(source.category) || !visibleLayers.has(target.category)) return null;
+          const isSelected =
+            dependency.sourceId === selectedComponentId || dependency.targetId === selectedComponentId;
+          return (
+            <Line
+              key={dependency.id}
+              points={[
+                [source.coordinates.x, NODE_HEIGHT, source.coordinates.z],
+                [target.coordinates.x, NODE_HEIGHT, target.coordinates.z],
+              ]}
+              color={
+                isSelected
+                  ? dependency.targetId === selectedComponentId
+                    ? UPSTREAM_COLOR
+                    : DOWNSTREAM_COLOR
+                  : DEPENDENCY_COLOR[dependency.dependencyType]
+              }
+              lineWidth={isSelected ? 3 : 1}
+              opacity={isSelected ? 0.95 : 0.2}
+              transparent
+              dashed={dependency.hasBackup}
+              dashSize={10}
+              gapSize={6}
+            />
+          );
+        })}
+    </group>
   );
 }

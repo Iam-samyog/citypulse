@@ -37,12 +37,12 @@ export async function POST(request: Request) {
 
   const originComponent = await db
     .collection<InfrastructureComponent>(collections.infrastructureComponents)
-    .findOne({ componentId: incident.componentId });
+    .findOne({ id: incident.componentId });
 
   const affectedComponents = await db
     .collection<InfrastructureComponent>(collections.infrastructureComponents)
     .find({
-      componentId: { $in: incident.affectedComponents.map((a) => a.componentId) },
+      id: { $in: incident.affectedComponents.map((a) => a.componentId) },
     })
     .toArray();
 
@@ -50,12 +50,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Origin component not found" }, { status: 404 });
   }
 
-  const result = await explainIncident({
-    incident,
-    originComponent,
-    affectedComponents,
-    question: body.question,
-  });
+  let result;
+  try {
+    result = await explainIncident({
+      incident,
+      originComponent,
+      affectedComponents,
+      question: body.question,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Gemini is unavailable";
+    return NextResponse.json(
+      {
+        error: message.includes("GEMINI_API_KEY")
+          ? "Gemini is not connected. Add GEMINI_API_KEY to .env.local and restart the server."
+          : `Gemini could not analyze this incident: ${message}`,
+      },
+      { status: 503 }
+    );
+  }
 
   const analysis: AIAnalysis = {
     analysisId: randomUUID(),

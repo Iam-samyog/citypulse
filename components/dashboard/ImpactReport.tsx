@@ -9,6 +9,10 @@ export function ImpactReport({ impact }: ImpactReportProps) {
   const rows: Array<[string, string | number]> = [
     ["Directly failed components", impact.directlyFailedCount],
     ["Downstream components affected", impact.downstreamAffectedCount],
+    [
+      "Offline / degraded / on backup",
+      `${impact.statusBreakdown.offline} / ${impact.statusBreakdown.degraded} / ${impact.statusBreakdown.backup}`,
+    ],
     ["Potentially affected districts", impact.affectedDistricts.length],
     ["Population exposed to disruption", `${impact.populationExposedPct}%`],
     ["Critical facilities requiring attention", impact.criticalFacilitiesAffected.length],

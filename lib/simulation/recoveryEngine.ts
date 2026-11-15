@@ -1,47 +1,27 @@
-import type { OperationalStatus } from "@/types/infrastructure";
-import type { RepairOperation, RepairStage } from "@/types/recovery";
+import type { RepairOperation } from "@/types/recovery";
+import { evaluateNetwork, type ComponentState } from "./failureEngine";
 import { InfrastructureGraph } from "./graph";
-import { simulateFailure } from "./failureEngine";
 
-const STAGE_TO_STATUS: Partial<Record<RepairStage, OperationalStatus>> = {
-  reported: "failed",
-  crew_dispatched: "failed",
-  inspection_in_progress: "failed",
-  repair_in_progress: "repairing",
-  awaiting_verification: "repairing",
-  restored: "restored",
-};
+/** A repair only counts once it is both finished and verified on site. */
+export function isRepairComplete(repair: RepairOperation): boolean {
+  return repair.repairStatus === "restored" && repair.verificationStatus === "verified";
+}
 
 /**
- * Applies a verified repair to the graph's in-memory component state and
- * recalculates downstream availability by re-running the failure engine
- * from any components still in a failed/degraded state.
- *
- * Returns the updated status map for every component so the caller can
- * diff it against the previous simulation state and emit simulation_events.
+ * Recalculates the whole network after a repair. `failedComponentIds` is
+ * every component currently failed at source (the origins of open
+ * incidents). A completed repair removes its component from that set;
+ * everything downstream then recovers, or not, on its own supply.
  */
 export function applyRepair(
   graph: InfrastructureGraph,
-  repair: RepairOperation
-): Map<string, OperationalStatus> {
-  const component = graph.getComponent(repair.componentId);
-  if (!component) {
+  repair: RepairOperation,
+  failedComponentIds: Iterable<string>
+): Map<string, ComponentState> {
+  if (!graph.getComponent(repair.componentId)) {
     throw new Error(`Unknown component: ${repair.componentId}`);
   }
-
-  const newStatus = STAGE_TO_STATUS[repair.repairStatus] ?? component.operationalStatus;
-
-  if (repair.repairStatus === "restored" && repair.verificationStatus !== "verified") {
-    // A repair cannot be marked restored in the model until verified on site.
-    return new Map([[component.componentId, component.operationalStatus]]);
-  }
-
-  component.operationalStatus = newStatus;
-  component.currentCapacity =
-    newStatus === "restored" ? component.capacity : component.currentCapacity;
-
-  // Re-evaluate anything still downstream of this component, in case
-  // restoring it also restores services further down the chain.
-  const result = simulateFailure(graph, component.componentId, newStatus);
-  return result.finalStatuses;
+  const stillFailed = new Set(failedComponentIds);
+  if (isRepairComplete(repair)) stillFailed.delete(repair.componentId);
+  return evaluateNetwork(graph, stillFailed);
 }

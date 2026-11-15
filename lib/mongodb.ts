@@ -10,7 +10,10 @@ function createClientPromise(): Promise<MongoClient> {
   if (!uri) {
     throw new Error("MONGODB_URI is not set. Copy .env.example to .env.local and fill it in.");
   }
-  return new MongoClient(uri).connect();
+  return new MongoClient(uri, {
+    serverSelectionTimeoutMS: 4_000,
+    connectTimeoutMS: 4_000,
+  }).connect();
 }
 
 function getClientPromise(): Promise<MongoClient> {

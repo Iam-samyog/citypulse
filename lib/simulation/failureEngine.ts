@@ -1,116 +1,171 @@
-import type { InfrastructureComponent, OperationalStatus } from "@/types/infrastructure";
+import type {
+  ComponentStatus,
+  DependencyType,
+  InfrastructureDependency,
+} from "@/types/infrastructure";
 import type { AffectedComponentRecord } from "@/types/incident";
 import { InfrastructureGraph } from "./graph";
+
+/** At or above this service level a component is fully working. */
+export const OPERATIONAL_THRESHOLD = 0.9;
+/** Below this service level a component is offline and delivers nothing. */
+export const DEGRADED_THRESHOLD = 0.5;
+
+export interface ComponentState {
+  status: ComponentStatus;
+  /** Share of its needs this component is getting, 0 to 1. */
+  serviceLevel: number;
+  /** Backup reserve drawn to reach that service level. */
+  backupUsed: number;
+}
 
 export interface FailureResult {
   originComponentId: string;
   affectedComponents: AffectedComponentRecord[];
-  finalStatuses: Map<string, OperationalStatus>;
+  states: Map<string, ComponentState>;
 }
 
 /**
- * Deterministically propagates a failure from `originComponentId` through
- * the dependency graph.
+ * Works out the state of every component given a set of failed ones.
+ * Deterministic: the same graph and the same failures always give the same
+ * answer. Components are visited sources-first, and for each one:
  *
- * Rule of thumb (keep this simple and explainable for judges):
- *  1. The origin component is marked FAILED.
- *  2. For every downstream component (in BFS order so upstream effects are
- *     resolved before downstream ones), sum the available capacity it still
- *     receives from all its upstream dependencies plus its own backup
- *     capacity.
- *  3. If available capacity >= requiredInputCapacity * operationalThreshold,
- *     the component stays OPERATIONAL.
- *  4. Else if available capacity >= requiredInputCapacity * 0.5 (or it has
- *     backup capacity covering the gap), it becomes DEGRADED / AT_RISK.
- *  5. Else it becomes FAILED, and its own downstream effects are evaluated
- *     in turn.
- *
- * This is intentionally a simple, auditable scoring model — not a physical
- * power-flow simulation — so it stays deterministic and demo-friendly.
+ *  1. Output. A component can deliver maxCapacity x its own service level.
+ *     Offline components deliver nothing.
+ *  2. Rationing. That output goes to its dependents in order of criticality
+ *     (highest first, ties by id), each taking up to its edge's
+ *     requiredCapacity. A hospital is served before a ferry terminal.
+ *  3. Need. Per dependency type, a component needs the largest
+ *     requiredCapacity among its edges of that type. Several edges of one
+ *     type are alternates: a second, smaller feeder is partial redundancy.
+ *  4. Backup. If an edge marked hasBackup falls short, the component covers
+ *     the gap from backupCapacityRemaining, one shared reserve per component.
+ *  5. Status. Service level is the worst ratio across its dependency types:
+ *     >= 0.9 operational (or "backup" if the reserve was needed),
+ *     >= 0.5 degraded, otherwise offline.
  */
+export function evaluateNetwork(
+  graph: InfrastructureGraph,
+  failedComponentIds: Iterable<string>,
+  availableBackupByComponent?: ReadonlyMap<string, number>
+): Map<string, ComponentState> {
+  const order = graph.topologicalOrder();
+  if (!order) {
+    throw new Error("Cannot simulate: the dependency graph contains a cycle");
+  }
+
+  const failed = new Set(failedComponentIds);
+  const states = new Map<string, ComponentState>();
+  const delivered = new Map<string, number>();
+
+  for (const id of order) {
+    const component = graph.getComponent(id)!;
+    const state = failed.has(id)
+      ? { status: "offline" as const, serviceLevel: 0, backupUsed: 0 }
+      : resolveState(
+          graph.getIncomingDependencies(id),
+          availableBackupByComponent?.get(id) ?? component.backupCapacityRemaining,
+          delivered
+        );
+    states.set(id, state);
+
+    let output = state.status === "offline" ? 0 : component.maxCapacity * state.serviceLevel;
+    for (const dependency of rationingOrder(graph, graph.getOutgoingDependencies(id))) {
+      const share = Math.min(dependency.requiredCapacity, output);
+      delivered.set(dependency.id, share);
+      output -= share;
+    }
+  }
+
+  return states;
+}
+
+/** Fails `originComponentId` on top of anything in `alreadyFailedIds` and reports what changed. */
 export function simulateFailure(
   graph: InfrastructureGraph,
   originComponentId: string,
-  originStatus: OperationalStatus = "failed"
+  alreadyFailedIds: Iterable<string> = []
 ): FailureResult {
-  const origin = graph.getComponent(originComponentId);
-  if (!origin) {
+  if (!graph.getComponent(originComponentId)) {
     throw new Error(`Unknown component: ${originComponentId}`);
   }
 
-  const closure = graph.getDownstreamClosure(originComponentId);
-  const orderedIds = Array.from(closure.entries())
-    .sort((a, b) => a[1] - b[1])
-    .map(([id]) => id);
+  const states = evaluateNetwork(graph, [...alreadyFailedIds, originComponentId]);
+  const distances = graph.getDownstreamClosure(originComponentId);
 
-  const finalStatuses = new Map<string, OperationalStatus>();
   const affectedComponents: AffectedComponentRecord[] = [];
-
-  finalStatuses.set(originComponentId, originStatus);
-
-  for (const componentId of orderedIds) {
+  for (const [componentId, state] of states) {
     if (componentId === originComponentId) continue;
-
-    const component = graph.getComponent(componentId);
-    if (!component) continue;
-
-    const previousStatus = component.operationalStatus;
-    const newStatus = resolveComponentStatus(graph, component, finalStatuses);
-    finalStatuses.set(componentId, newStatus);
-
-    if (newStatus !== previousStatus) {
-      affectedComponents.push({
-        componentId,
-        previousStatus,
-        newStatus,
-        distanceFromOrigin: closure.get(componentId) ?? -1,
-      });
-    }
+    const previousStatus = graph.getComponent(componentId)!.status;
+    if (state.status === previousStatus) continue;
+    affectedComponents.push({
+      componentId,
+      previousStatus,
+      newStatus: state.status,
+      distanceFromOrigin: distances.get(componentId) ?? -1,
+      serviceLevel: state.serviceLevel,
+      backupUsed: state.backupUsed,
+    });
   }
+  affectedComponents.sort(
+    (a, b) => a.distanceFromOrigin - b.distanceFromOrigin || a.componentId.localeCompare(b.componentId)
+  );
 
-  return { originComponentId, affectedComponents, finalStatuses };
+  return { originComponentId, affectedComponents, states };
 }
 
-function resolveComponentStatus(
+function rationingOrder(
   graph: InfrastructureGraph,
-  component: InfrastructureComponent,
-  resolvedStatuses: Map<string, OperationalStatus>
-): OperationalStatus {
-  const upstreamDeps = graph.getUpstream(component.componentId);
+  dependencies: InfrastructureDependency[]
+): InfrastructureDependency[] {
+  const criticality = (d: InfrastructureDependency) => graph.getComponent(d.targetId)?.criticality ?? 0;
+  return [...dependencies].sort(
+    (a, b) => criticality(b) - criticality(a) || a.targetId.localeCompare(b.targetId) || a.id.localeCompare(b.id)
+  );
+}
 
-  // No upstream dependency info -> nothing changed for this component.
-  if (upstreamDeps.length === 0) {
-    return component.operationalStatus;
+function resolveState(
+  incoming: InfrastructureDependency[],
+  backupReserve: number,
+  delivered: Map<string, number>
+): ComponentState {
+  if (incoming.length === 0) {
+    return { status: "operational", serviceLevel: 1, backupUsed: 0 };
   }
 
-  let availableCapacity = component.backupCapacity;
+  const byType = new Map<DependencyType, InfrastructureDependency[]>();
+  for (const dependency of incoming) {
+    byType.set(dependency.dependencyType, [...(byType.get(dependency.dependencyType) ?? []), dependency]);
+  }
 
-  for (const dep of upstreamDeps) {
-    const sourceStatus =
-      resolvedStatuses.get(dep.sourceComponentId) ??
-      graph.getComponent(dep.sourceComponentId)?.operationalStatus ??
-      "operational";
+  let reserve = backupReserve;
+  let serviceLevel = 1;
 
-    const sourceIsSupplying =
-      sourceStatus === "operational" || sourceStatus === "restored";
+  for (const type of [...byType.keys()].sort()) {
+    const edges = byType.get(type)!;
+    const need = Math.max(...edges.map((d) => d.requiredCapacity));
+    const supplied = Math.min(need, edges.reduce((sum, d) => sum + (delivered.get(d.id) ?? 0), 0));
 
-    if (sourceIsSupplying) {
-      availableCapacity += dep.requiredCapacity;
-    } else if (dep.hasBackup) {
-      // Backup line covers this dependency's requirement even if the
-      // primary source failed.
-      availableCapacity += dep.requiredCapacity * 0.75;
+    let covered = supplied;
+    const shortfall = need - supplied;
+    const backupAllowed = edges.some((d) => d.hasBackup && (delivered.get(d.id) ?? 0) < d.requiredCapacity);
+    if (shortfall > 0 && backupAllowed) {
+      const drawn = Math.min(shortfall, reserve);
+      reserve -= drawn;
+      covered += drawn;
     }
+    serviceLevel = Math.min(serviceLevel, covered / need);
   }
 
-  const required = component.requiredInputCapacity;
-  const threshold = component.operationalThreshold;
+  const backupUsed = backupReserve - reserve;
+  const status: ComponentStatus =
+    serviceLevel >= OPERATIONAL_THRESHOLD
+      ? backupUsed > 0
+        ? "backup"
+        : "operational"
+      : serviceLevel >= DEGRADED_THRESHOLD
+        ? "degraded"
+        : "offline";
 
-  if (required === 0 || availableCapacity >= required * threshold) {
-    return "operational";
-  }
-  if (availableCapacity >= required * 0.5) {
-    return component.criticality === "critical" ? "at_risk" : "degraded";
-  }
-  return "failed";
+  return { status, serviceLevel, backupUsed };
 }

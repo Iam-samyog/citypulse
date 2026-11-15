@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "node --env-file=.env.local -r tsx/cjs scripts/seed.ts"
+    "seed": "node --env-file=.env.local -r tsx/cjs scripts/seed.ts",
+    "verify:graph": "tsx scripts/verify-graph.ts"
   },
   "dependencies": {
     "next": "15.5.29",

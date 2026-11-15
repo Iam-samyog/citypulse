@@ -7,15 +7,14 @@ interface OracleReviewProps {
 }
 
 /**
- * Chapter IV, "Athena's Strategy" — the Grok-powered independent
- * strategic review, shown side-by-side with AthenaAnalysis so judges can
- * compare the two AI perspectives directly.
+ * The Oracle is a distinct strategic agent powered by the same Gemini model
+ * as Athena, with an independent stress-testing prompt.
  */
 export function OracleReview({ analysis, onRequestReview, loading }: OracleReviewProps) {
   return (
     <div className="border border-gold/40 rounded p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-serif text-lg">The Strategic Oracle (Grok)</h3>
+        <h3 className="font-serif text-lg">Oracle · Strategic Foresight</h3>
         <button
           onClick={onRequestReview}
           className="border border-gold px-3 py-1 text-xs uppercase hover:bg-gold hover:text-aegean transition-colors"
