@@ -28,6 +28,12 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+The dashboard's **AI Assistants** section includes Athena chat, powered by
+Gemini. Set `GEMINI_API_KEY` in `.env.local`; the key is used server-side and
+must never be put in a `NEXT_PUBLIC_` variable. The default model is
+`gemini-3.6-flash`. You can override it with `GEMINI_MODEL` in `.env.local`,
+then restart the dev server.
+
 ## Project layout
 
 ```
@@ -42,6 +48,7 @@ app/
     recovery/                POST advance a repair
     ai/gemini/                 POST Athena's explanation
     ai/oracle/                  POST Oracle's recovery review
+    chatbot/                    POST Athena chat messages
 components/
   city/        3D scene (React Three Fiber)
   dashboard/   Incident / impact / timeline / recovery panels

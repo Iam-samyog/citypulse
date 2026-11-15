@@ -4,21 +4,21 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Torch } from "@/components/dashboard/Torch";
 import { CityDemographics } from "@/components/dashboard/CityDemographics";
+import { ChatbotWidget } from "@/components/ai/ChatbotWidget";
 import { districts } from "@/lib/seed/infrastructure";
 import type { Incident } from "@/types/incident";
 import type { InfrastructureComponent, InfrastructureDependency } from "@/types/infrastructure";
 
 const NAV = [
   ["Overview", "⌂"], ["Infrastructure", "⌘"], ["Incidents", "△"],
-  ["Analytics", "⌁"], ["AI Assistants", "✦"]
+  ["Advisors", "✦"]
 ] as const;
 
 const ART: Record<string, { src: string; pos: string; full?: boolean }> = {
   Overview: { src: "/art/welcome-warrior.jpg", pos: "50% 30%", full: true },
   Infrastructure: { src: "/art/odysseus-sea.jpg", pos: "50% 30%" },
   Incidents: { src: "/art/battle-crowd.jpg", pos: "50% 50%" },
-  Analytics: { src: "/art/odysseus-ship.jpg", pos: "50% 0%" },
-  "AI Assistants": { src: "/art/odysseus-sea.jpg", pos: "50% 30%" },
+  "Advisors": { src: "/art/athena-odysseus.jpg", pos: "50% 62%" },
 };
 
 const CATEGORY = {
@@ -39,6 +39,8 @@ export function AdminDashboard() {
   const [query, setQuery] = useState(""); // text in the search box
   const [tableQuery, setTableQuery] = useState(""); // filter applied to the asset table
   const [searchOpen, setSearchOpen] = useState(false);
+  const [athenaOpen, setAthenaOpen] = useState(false);
+  const chatFull = active === "Advisors" && athenaOpen;
   const [range, setRange] = useState<"24h" | "7d" | "30d">("24h");
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState("");
@@ -158,7 +160,7 @@ export function AdminDashboard() {
       <div aria-hidden className="painting print:hidden" />
       <aside className="fixed inset-y-0 left-0 z-50 hidden w-[248px] print:!hidden flex-col border-r border-[#c9a24b]/25 bg-[#170b09]/75 backdrop-blur-xl text-white lg:flex">
         <div className="flex h-[76px] items-center gap-3 border-b border-white/10 px-6">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e4aa56] font-paint text-xl text-[#1f100d]">Ι</span>
+          <img src="/art/helmet.png" alt="" aria-hidden className="h-11 w-auto drop-shadow-[0_2px_6px_rgba(0,0,0,.6)]" />
           <div><p className="font-heading text-lg tracking-[.14em]">ITHACA</p><p className="text-[10px] uppercase tracking-[.22em] text-white/35">City operations</p></div>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-6">
@@ -174,8 +176,8 @@ export function AdminDashboard() {
       </aside>
 
       <header className="sticky top-0 z-40 print:hidden flex min-h-[76px] items-center justify-between gap-4 border-b border-[#c9a24b]/25 bg-[#1a0c0a]/55 backdrop-blur-xl px-4 backdrop-blur-xl sm:px-7">
-        <div className="lg:hidden"><p className="font-paint text-lg tracking-[.12em]">ITHACA</p><p className="text-[10px] uppercase tracking-widest text-[#d8ccb0]/70">Operations</p></div>
-        <div className="hidden sm:block"><p className="text-lg font-semibold">{active}</p><p className="mt-0.5 text-[12px] text-[#d8ccb0]/70">{active === "Overview" ? "Monitor city systems and operational readiness" : active === "Infrastructure" ? "Every monitored asset across the city" : active === "Incidents" ? "Active and historical incidents" : active === "Analytics" ? "Population, housing and service trends" : "Athena and Oracle intelligence layer"}</p></div>
+        <div className="flex items-center gap-2.5 lg:hidden"><img src="/art/helmet.png" alt="" aria-hidden className="h-9 w-auto" /><div><p className="font-paint text-lg tracking-[.12em]">ITHACA</p><p className="text-[10px] uppercase tracking-widest text-[#d8ccb0]/70">Operations</p></div></div>
+        <div className="hidden sm:block"><p className="text-lg font-semibold">{active}</p><p className="mt-0.5 text-[12px] text-[#d8ccb0]/70">{active === "Overview" ? "Monitor city systems and operational readiness" : active === "Infrastructure" ? "Every monitored asset across the city" : active === "Incidents" ? "Active and historical incidents" : "Athena and Oracle intelligence layer"}</p></div>
         <div className="flex items-center gap-2 sm:gap-3">
           <SearchBox className="hidden h-10 w-64 md:flex" query={query} setQuery={setQuery} results={results} open={searchOpen} setOpen={setSearchOpen} />
           <span className="flex h-10 items-center gap-2 rounded-xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] px-3 text-[11px] uppercase tracking-wider text-[#d8ccb0]/70"><span className={`h-2 w-2 rounded-full ${dataSource === "mongodb" ? "bg-emerald-400" : dataSource === "fixture" ? "bg-amber-400" : "animate-pulse bg-slate-300"}`} />{dataSource === "mongodb" ? "Live data" : dataSource === "fixture" ? "Demo data" : "Connecting"}</span>
@@ -189,7 +191,7 @@ export function AdminDashboard() {
           {NAV.map(([label]) => <button key={label} onClick={() => setActive(label)} className={`shrink-0 rounded-full px-4 py-2 text-[13px] ${active === label ? "bg-[#4a1f14] text-white" : "bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 border border-[#c9a24b]/25"}`}>{label}</button>)}
         </nav>
 
-        <section className={`relative z-30 flex min-h-[300px] flex-col justify-end gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between sm:p-10 sm:min-h-[380px]`}>
+        <section className={`${chatFull ? "hidden" : ""} relative z-30 flex min-h-[300px] flex-col justify-end gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between sm:p-10 sm:min-h-[380px]`}>
           <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl border border-[#c9a24b]/30 bg-[#1c0e0b] shadow-[0_18px_50px_rgba(0,0,0,.5)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={ART[active].src} alt="" className={`absolute left-0 top-0 h-full w-full max-w-none object-cover ${ART[active].full ? "" : "sm:w-[112%]"}`} style={{ objectPosition: ART[active].pos }} />
@@ -208,17 +210,17 @@ export function AdminDashboard() {
           </div>
         </section>
 
-        <div className="mt-5 flex flex-wrap items-center gap-2 print:hidden">
+        <div className={`${chatFull ? "hidden" : ""} mt-5 flex flex-wrap items-center gap-2 print:hidden`}>
           <span className="text-[11px] uppercase tracking-wider text-[#d8ccb0]/70">District</span>
           {[null, ...districts.map((d) => d.name)].map((name) => <button key={name ?? "all"} onClick={() => setDistrict(name)} className={`rounded-full border px-3.5 py-1.5 text-[13px] transition ${district === name ? "border-[#4a1f14] bg-[#4a1f14] text-white" : "border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 hover:bg-white/10"}`}>{name ?? "All districts"}</button>)}
         </div>
 
-        {(active === "Overview" || active === "Analytics") && <CityDemographics district={district} onSelect={setDistrict} components={allComponents} incidents={incidents} />}
+        {active === "Overview" && <CityDemographics district={district} onSelect={setDistrict} components={allComponents} incidents={incidents} />}
 
         {active === "Overview" && <>
         <section className="mt-8 grid grid-cols-2 gap-3 xl:grid-cols-4">
           <Kpi label="Infrastructure assets" value={scoped.length || "—"} change={district ?? "6 city systems"} glyph="⌘" color="#287c95" onClick={() => setActive("Infrastructure")} />
-          <Kpi label="Operational health" value={`${health}%`} change={`${statusCounts.operational} assets nominal`} glyph="✓" color="#32966f" onClick={() => setActive("Analytics")} />
+          <Kpi label="Operational health" value={`${health}%`} change={`${statusCounts.operational} assets nominal`} glyph="✓" color="#32966f" />
           <Kpi label="Active incidents" value={activeIncidents.length} change={activeIncidents.length ? "Response required" : "No active threats"} glyph="△" color={activeIncidents.length ? "#d56c4b" : "#32966f"} onClick={() => setActive("Incidents")} />
           <Kpi label="Backup coverage" value={`${coverage}%`} change={`${scopedDeps.length} dependency links`} glyph="◈" color="#b5792e" onClick={() => setActive("Infrastructure")} />
         </section>
@@ -253,15 +255,6 @@ export function AdminDashboard() {
         </section>
         </>}
 
-        {active === "Analytics" && <section className="mt-5 grid gap-5 xl:grid-cols-2">
-          <Card title="Asset status" subtitle={`${district ?? "Citywide"} network distribution`}><StatusPanel counts={statusCounts} total={scoped.length} /></Card>
-          <Card title="Infrastructure by category" subtitle="Assets per service layer"><CategoryBars counts={categoryCounts} /></Card>
-          <Card title="System health trend" subtitle="Service level (modelled)" action={range === "24h" ? "Last 24 hours" : range === "7d" ? "Last 7 days" : "Last 30 days"} onAction={() => setRange(range === "24h" ? "7d" : range === "7d" ? "30d" : "24h")}><HealthChart health={health || 100} range={range} seed={district?.length ?? 7} /></Card>
-          <Card title="Infrastructure per 1,000 residents" subtitle="Assets relative to population served">
-            <div className="space-y-4">{districts.map((d) => { const n = allComponents.filter((c) => c.district === d.name).length; const per = n / d.population * 1000; return <button key={d.name} onClick={() => setDistrict(d.name)} className="grid w-full grid-cols-[130px_1fr_40px] items-center gap-3 text-left"><span className="text-xs text-[#d8ccb0]/70">{d.name}</span><div className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-[#287c95]" style={{ width: `${Math.min(per / 1.2, 1) * 100}%` }} /></div><span className="text-right text-xs font-semibold">{per.toFixed(2)}</span></button>; })}</div>
-          </Card>
-        </section>}
-
         {active === "Infrastructure" && <Card title="Infrastructure assets" subtitle={`${searched.length} of ${allComponents.length} assets${q ? ` matching “${tableQuery}”` : ""}`} action={q ? "Clear search" : undefined} onAction={() => setTableQuery("")}>
           <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-xs"><thead><tr className="border-b border-[#c9a24b]/25 text-[11px] uppercase tracking-wider text-[#d8ccb0]/70"><th className="py-2">ID</th><th>Name</th><th>Category</th><th>District</th><th>Load</th><th>Crit.</th><th>Status</th></tr></thead><tbody>
             {searched.map((c) => <tr key={c.id} className="border-b border-[#c9a24b]/25"><td className={`${prefs.compact ? "py-1.5" : "py-3"} text-[#d8ccb0]/70`}>{c.id}</td><td className="font-semibold">{c.name}</td><td><span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: CATEGORY[c.category].color }} />{CATEGORY[c.category].label}</td><td>{c.district}</td><td><div className="flex items-center gap-2"><div className="h-1.5 w-16 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-[#287c95]" style={{ width: `${Math.min(c.currentLoad / c.maxCapacity, 1) * 100}%` }} /></div>{Math.round(c.currentLoad / c.maxCapacity * 100)}%</div></td><td>{"●".repeat(c.criticality)}</td><td><span className={`rounded-full px-2 py-1 text-[10px] uppercase ${c.status === "operational" ? "bg-emerald-400/15 text-emerald-300" : c.status === "offline" ? "bg-red-400/15 text-red-300" : "bg-amber-400/15 text-amber-300"}`}>{c.status}</span></td></tr>)}
@@ -271,10 +264,15 @@ export function AdminDashboard() {
 
         {active === "Incidents" && <Card title="Incidents" subtitle={`${scopedIncidents.length} recorded · ${activeIncidents.length} active`}><IncidentList incidents={scopedIncidents} /></Card>}
 
-        {active === "AI Assistants" && <section className="mt-5 grid gap-5 md:grid-cols-2">
-          <Card title="Athena" subtitle="Incident intelligence"><p className="text-xs leading-6 text-[#d8ccb0]/70">Analyses live failures and recommends response steps, grounded in simulation telemetry. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents to review right now."}</p><Link href="/city" className="mt-4 inline-block rounded-xl bg-[#4aa9bd] px-4 py-2.5 text-xs font-semibold text-white">Consult Athena in 3D city ↗</Link></Card>
-          <Card title="Oracle" subtitle="Strategic foresight"><p className="text-xs leading-6 text-[#d8ccb0]/70">Reviews resilience and backup endurance to forecast cascading risk. Current backup coverage is {coverage}%.</p><Link href="/city" className="mt-4 inline-block rounded-xl bg-[#947ac2] px-4 py-2.5 text-xs font-semibold text-white">Consult Oracle in 3D city ↗</Link></Card>
-        </section>}
+        {active === "Advisors" && (athenaOpen
+          ? <div>
+              <button onClick={() => setAthenaOpen(false)} className="mb-3 text-xs uppercase tracking-wider text-[#e4aa56] hover:text-white">← Back to assistants</button>
+              <ChatbotWidget embedded components={allComponents} incidents={scopedIncidents} />
+            </div>
+          : <section className="mt-5 grid gap-5 md:grid-cols-2">
+              <Card title="Athena" subtitle="Incident intelligence"><p className="text-xs leading-6 text-[#d8ccb0]/70">Analyses live failures and recommends response steps, grounded in simulation telemetry. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents right now."}</p><button onClick={() => setAthenaOpen(true)} className="mt-4 inline-block rounded-xl bg-[#4aa9bd] px-4 py-2.5 text-xs font-semibold text-[#071b23]">Chat with Athena ✦</button></Card>
+              <Card title="Oracle" subtitle="Strategic foresight"><p className="text-xs leading-6 text-[#d8ccb0]/70">Reviews resilience and backup endurance to forecast cascading risk. Current backup coverage is {coverage}%. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents are ready for review."}</p><Link href="/city" className="mt-4 inline-block rounded-xl bg-[#947ac2] px-4 py-2.5 text-xs font-semibold text-white">Consult Oracle in 3D city ↗</Link></Card>
+            </section>)}
 
       </div>
       {toast && <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl bg-[#4a1f14] px-5 py-3 text-xs text-white shadow-xl print:hidden">{toast}</div>}
