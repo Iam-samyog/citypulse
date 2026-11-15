@@ -11,14 +11,14 @@ import type { InfrastructureComponent, InfrastructureDependency } from "@/types/
 
 const NAV = [
   ["Overview", "⌂"], ["Infrastructure", "⌘"], ["Incidents", "△"],
-  ["AI Assistants", "✦"]
+  ["Advisors", "✦"]
 ] as const;
 
 const ART: Record<string, { src: string; pos: string; full?: boolean }> = {
   Overview: { src: "/art/welcome-warrior.jpg", pos: "50% 30%", full: true },
   Infrastructure: { src: "/art/odysseus-sea.jpg", pos: "50% 30%" },
   Incidents: { src: "/art/battle-crowd.jpg", pos: "50% 50%" },
-  "AI Assistants": { src: "/art/athena-odysseus.jpg", pos: "50% 62%" },
+  "Advisors": { src: "/art/athena-odysseus.jpg", pos: "50% 62%" },
 };
 
 const CATEGORY = {
@@ -39,6 +39,8 @@ export function AdminDashboard() {
   const [query, setQuery] = useState(""); // text in the search box
   const [tableQuery, setTableQuery] = useState(""); // filter applied to the asset table
   const [searchOpen, setSearchOpen] = useState(false);
+  const [athenaOpen, setAthenaOpen] = useState(false);
+  const chatFull = active === "Advisors" && athenaOpen;
   const [range, setRange] = useState<"24h" | "7d" | "30d">("24h");
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState("");
@@ -189,7 +191,7 @@ export function AdminDashboard() {
           {NAV.map(([label]) => <button key={label} onClick={() => setActive(label)} className={`shrink-0 rounded-full px-4 py-2 text-[13px] ${active === label ? "bg-[#4a1f14] text-white" : "bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 border border-[#c9a24b]/25"}`}>{label}</button>)}
         </nav>
 
-        <section className={`relative z-30 flex min-h-[300px] flex-col justify-end gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between sm:p-10 sm:min-h-[380px]`}>
+        <section className={`${chatFull ? "hidden" : ""} relative z-30 flex min-h-[300px] flex-col justify-end gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between sm:p-10 sm:min-h-[380px]`}>
           <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl border border-[#c9a24b]/30 bg-[#1c0e0b] shadow-[0_18px_50px_rgba(0,0,0,.5)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={ART[active].src} alt="" className={`absolute left-0 top-0 h-full w-full max-w-none object-cover ${ART[active].full ? "" : "sm:w-[112%]"}`} style={{ objectPosition: ART[active].pos }} />
@@ -208,7 +210,7 @@ export function AdminDashboard() {
           </div>
         </section>
 
-        <div className="mt-5 flex flex-wrap items-center gap-2 print:hidden">
+        <div className={`${chatFull ? "hidden" : ""} mt-5 flex flex-wrap items-center gap-2 print:hidden`}>
           <span className="text-[11px] uppercase tracking-wider text-[#d8ccb0]/70">District</span>
           {[null, ...districts.map((d) => d.name)].map((name) => <button key={name ?? "all"} onClick={() => setDistrict(name)} className={`rounded-full border px-3.5 py-1.5 text-[13px] transition ${district === name ? "border-[#4a1f14] bg-[#4a1f14] text-white" : "border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] text-[#d8ccb0]/70 hover:bg-white/10"}`}>{name ?? "All districts"}</button>)}
         </div>
@@ -262,10 +264,15 @@ export function AdminDashboard() {
 
         {active === "Incidents" && <Card title="Incidents" subtitle={`${scopedIncidents.length} recorded · ${activeIncidents.length} active`}><IncidentList incidents={scopedIncidents} /></Card>}
 
-        {active === "AI Assistants" && <section className="mt-5 grid gap-5 md:grid-cols-[1.35fr_.65fr]">
-          <ChatbotWidget embedded components={allComponents} incidents={scopedIncidents} />
-          <Card title="Oracle" subtitle="Strategic foresight"><p className="text-xs leading-6 text-[#d8ccb0]/70">Reviews resilience and backup endurance to forecast cascading risk. Current backup coverage is {coverage}%. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents are ready for review."}</p><Link href="/city" className="mt-4 inline-block rounded-xl bg-[#947ac2] px-4 py-2.5 text-xs font-semibold text-white">Consult Oracle in 3D city ↗</Link></Card>
-        </section>}
+        {active === "Advisors" && (athenaOpen
+          ? <div>
+              <button onClick={() => setAthenaOpen(false)} className="mb-3 text-xs uppercase tracking-wider text-[#e4aa56] hover:text-white">← Back to assistants</button>
+              <ChatbotWidget embedded components={allComponents} incidents={scopedIncidents} />
+            </div>
+          : <section className="mt-5 grid gap-5 md:grid-cols-2">
+              <Card title="Athena" subtitle="Incident intelligence"><p className="text-xs leading-6 text-[#d8ccb0]/70">Analyses live failures and recommends response steps, grounded in simulation telemetry. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents right now."}</p><button onClick={() => setAthenaOpen(true)} className="mt-4 inline-block rounded-xl bg-[#4aa9bd] px-4 py-2.5 text-xs font-semibold text-[#071b23]">Chat with Athena ✦</button></Card>
+              <Card title="Oracle" subtitle="Strategic foresight"><p className="text-xs leading-6 text-[#d8ccb0]/70">Reviews resilience and backup endurance to forecast cascading risk. Current backup coverage is {coverage}%. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents are ready for review."}</p><Link href="/city" className="mt-4 inline-block rounded-xl bg-[#947ac2] px-4 py-2.5 text-xs font-semibold text-white">Consult Oracle in 3D city ↗</Link></Card>
+            </section>)}
 
       </div>
       {toast && <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl bg-[#4a1f14] px-5 py-3 text-xs text-white shadow-xl print:hidden">{toast}</div>}

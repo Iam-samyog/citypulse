@@ -81,42 +81,68 @@ export function ChatbotWidget({ components, incidents, embedded = false }: Chatb
         <section
           aria-label="Athena AI chat"
           className={embedded
-            ? "flex h-[min(650px,calc(100dvh-240px))] min-h-[420px] w-full flex-col overflow-hidden rounded-2xl border border-[#dbe5e8] bg-white shadow-[0_12px_42px_rgba(7,27,35,.12)]"
-            : "mb-3 flex h-[min(620px,calc(100dvh-7rem))] w-[min(390px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-[#dbe5e8] bg-white shadow-[0_20px_70px_rgba(7,27,35,.25)]"}
+            ? "[text-shadow:none] flex h-[calc(100dvh-110px)] min-h-[420px] w-full flex-col overflow-hidden rounded-2xl border border-[#6b4220] bg-[#7a5230] bg-[url(/art/parchment.jpg)] bg-cover bg-center shadow-[0_18px_50px_rgba(0,0,0,.5)]"
+            : "[text-shadow:none] mb-3 flex h-[min(620px,calc(100dvh-7rem))] w-[min(390px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-[#6b4220] bg-[#7a5230] bg-[url(/art/parchment.jpg)] bg-cover bg-center shadow-[0_20px_70px_rgba(7,27,35,.25)]"}
         >
-          <header className="flex items-center gap-3 bg-[#071b23] px-4 py-4 text-white">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e4aa56] text-lg font-semibold text-[#071b23]">✦</span>
+          <header className="flex items-center gap-3 bg-[#6b0f1a] px-4 py-4 text-[#f6e6c4]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/art/helmet.png" alt="" aria-hidden className="h-11 w-auto drop-shadow-[0_2px_6px_rgba(0,0,0,.6)]" />
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-semibold">Athena</h2>
-              <p className="mt-0.5 text-[10px] text-white/55">CITYPULSE AI assistant · Gemini</p>
+              <h2 className="font-heading text-lg font-normal tracking-[.14em]">Athena</h2>
+              <p className="mt-0.5 text-[10px] text-[#f6e6c4]/60">Ithaca AI Assistant</p>
             </div>
             {!embedded && <button type="button" onClick={() => setOpen(false)} aria-label="Close chat" className="grid h-8 w-8 place-items-center rounded-lg text-xl text-white/60 hover:bg-white/10 hover:text-white">×</button>}
           </header>
 
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-[#f7f9fa] p-4">
-            {messages.length === 0 && (
-              <div className="max-w-[90%] rounded-2xl rounded-tl-sm border border-[#e1e9ec] bg-white p-3 text-xs leading-5 text-[#52636a] shadow-sm">
-                Hello, Operator. Ask me about Ithaca&apos;s infrastructure, system health, or incident activity.
+          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-5 sm:px-10">
+            {(
+              <div className="flex items-end gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/art/helmet.png" alt="" aria-hidden className="h-14 w-auto shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,.5)]" />
+                <div className="relative mb-2 rounded-2xl rounded-bl-sm border border-[#b98a4a]/60 bg-[#fff4d6]/90 p-4">
+                  <span aria-hidden className="absolute -left-2 bottom-3 h-4 w-4 rotate-45 border-b border-l border-[#b98a4a]/60 bg-[#fff4d6]" />
+                  <p className="font-heading text-base font-normal leading-7 text-black">Hello, Operator. Ask me about Ithaca&apos;s infrastructure, system health, or incident activity.</p>
+                </div>
               </div>
             )}
-            {messages.map((message) => (
+            {messages.map((message) => message.role === "user" ? (
               <div
                 key={message.id}
-                className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3 py-2.5 text-xs leading-5 ${
-                  message.role === "user"
-                    ? "ml-auto rounded-br-sm bg-[#0b2a35] text-white"
-                    : "rounded-tl-sm border border-[#e1e9ec] bg-white text-[#34464e] shadow-sm"
-                }`}
+                className="ml-auto max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-[#b98a4a]/60 bg-[#fff4d6]/90 p-4 font-heading text-base font-normal leading-7 text-black"
               >
                 {message.content}
               </div>
+            ) : (
+              <div key={message.id} className="flex items-end gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/art/helmet.png" alt="" aria-hidden className="h-14 w-auto shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,.5)]" />
+                <div className="relative mb-2 max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-bl-sm border border-[#b98a4a]/60 bg-[#fff4d6]/90 p-4 font-heading text-base font-normal leading-7 text-black">
+                  <span aria-hidden className="absolute -left-2 bottom-3 h-4 w-4 rotate-45 border-b border-l border-[#b98a4a]/60 bg-[#fff4d6]" />
+                  {message.content}
+                </div>
+              </div>
             ))}
-            {sending && <p role="status" className="text-[11px] text-[#7b8b92]">Athena is thinking…</p>}
-            {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-[11px] leading-5 text-red-700">{error}</p>}
+            {sending && (
+              <div role="status" className="flex items-end gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/art/helmet.png" alt="" aria-hidden className="h-14 w-auto shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,.5)]" />
+                <p className="mb-2 rounded-2xl rounded-bl-sm border border-[#b98a4a]/60 bg-[#fff4d6]/90 px-4 py-3 font-heading text-base italic text-black">Athena is thinking…</p>
+              </div>
+            )}
+            {error && (
+              <div role="alert" className="flex items-end gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/art/helmet.png" alt="" aria-hidden className="h-14 w-auto shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,.5)]" />
+                <div className="relative mb-2 max-w-[80%] rounded-2xl rounded-bl-sm border border-[#6b0f1a]/50 bg-[#fff4d6]/90 p-4 font-heading text-base leading-7 text-[#6b0f1a]">
+                  <span aria-hidden className="absolute -left-2 bottom-3 h-4 w-4 rotate-45 border-b border-l border-[#6b0f1a]/50 bg-[#fff4d6]" />
+                  Busy right now—processing your request shortly...
+                </div>
+              </div>
+            )}
           </div>
 
-          <form onSubmit={sendMessage} className="border-t border-[#e5ebed] bg-white p-3">
-            <div className="flex items-end gap-2 rounded-xl border border-[#dce5e8] bg-[#f8fafb] p-2 focus-within:border-[#7daebb]">
+          <form onSubmit={sendMessage} className="border-t border-[#6b4220]/60 bg-[#2a150d]/80 p-3 backdrop-blur-sm">
+            <div className="flex items-end gap-2 rounded-xl border border-[#b98a4a]/60 bg-[#f6e6c4] p-2 focus-within:border-[#e4aa56]">
               <textarea
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
@@ -130,18 +156,18 @@ export function ChatbotWidget({ components, incidents, embedded = false }: Chatb
                 placeholder="Ask Athena a question…"
                 rows={1}
                 maxLength={2000}
-                className="max-h-24 min-h-9 flex-1 resize-y bg-transparent px-1 py-2 text-xs text-[#263940] outline-none placeholder:text-[#9aa7ac]"
+                className="max-h-32 min-h-11 flex-1 resize-y bg-transparent px-1 py-2.5 text-base text-[#3b2412] outline-none placeholder:text-[#8a6d4a]"
               />
               <button
                 type="submit"
                 disabled={!input.trim() || sending}
                 aria-label="Send message"
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#e4aa56] text-sm font-bold text-[#071b23] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#5a2616] text-sm font-bold text-[#f6e6c4] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ↑
               </button>
             </div>
-            <p className="mt-2 text-center text-[9px] text-[#9aa7ac]">AI responses can be inaccurate. Verify critical decisions.</p>
+            <p className="mt-2 text-center text-[9px] text-[#f6e6c4]/50">AI responses can be inaccurate. Verify critical decisions.</p>
           </form>
         </section>
       )}
