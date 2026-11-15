@@ -169,7 +169,6 @@ tailwind.config = { theme: { extend: {
     <div class="kpi"><b id="k5">0</b><span id="l5"></span></div>
     <div class="kpi"><b id="k6">0</b><span id="l6"></span></div>
   </div>
-  <button id="simSave" class="btn-fire w-full mt-3 hidden">💾 Save to history</button>
   </div>
   <div id="devPanel" class="glass rounded-2xl p-4 shadow-2xl pointer-events-auto overflow-y-auto scrolly min-h-0 hidden">
     <div class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400">Development planner</div>
@@ -200,9 +199,12 @@ tailwind.config = { theme: { extend: {
   </div>
 </div>
 
-<!-- Bottom-left: 3D city / graph view -->
-<div class="fixed bottom-4 left-4 z-10 w-[350px] max-w-[calc(100vw-2rem)] glass rounded-2xl p-1.5 flex gap-1 shadow-2xl">
-  <button class="mode on" data-gview="3d">🏛 3D city</button><button class="mode" data-gview="graph">🕸 Graph view</button>
+<!-- Bottom-left: save to history, then 3D city / graph view -->
+<div class="fixed bottom-4 left-4 z-10 w-[350px] max-w-[calc(100vw-2rem)] flex flex-col gap-2">
+  <button id="simSave" class="btn-fire w-full shadow-2xl hidden">Save to history</button>
+  <div class="glass rounded-2xl p-1.5 flex gap-1 shadow-2xl">
+    <button class="mode on" data-gview="3d">🏛 3D city</button><button class="mode" data-gview="graph">🕸 Graph view</button>
+  </div>
 </div>
 <!-- Graph view overlay -->
 <div id="graphView" class="fixed inset-0 z-[6] hidden" style="background:radial-gradient(ellipse at center,#1a140e 0%,#0b0906 75%)">
@@ -1480,7 +1482,7 @@ function tick(m){S.tick=m;SCN[S.kind].tick(m);if(S.ivs)for(const v of S.ivs)if(!
 function finish(t,text,kind){S.done=true;S.playing=false;ev(t,text,kind,S.src);if(S.silent)return;UI.pause.textContent='Done';UI.phase.textContent=kind==='good'?'Over':'Aftermath';
   lastRun=runSummary(t,text,kind);
   postToParent('finish',lastRun);
-  UI.save.classList.remove('hidden');UI.save.disabled=false;UI.save.textContent='💾 Save to history';
+  UI.save.classList.remove('hidden');UI.save.disabled=false;UI.save.textContent='Save to history';
   setTimeout(()=>{if(S&&S.done){fadeArcs('crew');fadeArcs('dig');}},1500);}
 // --- bridge to the CityPulse dashboard (this page opens in its own tab; the dashboard
 // that opened it listens for these via window.opener, so it can mirror live insights
@@ -1509,7 +1511,7 @@ function saveRun(){
     .then(r=>{if(!r.ok)throw new Error();return r.json();})
     .then((res)=>{UI.save.textContent='✔ Saved to history';ev(lastRun.durationSimMinutes,'Run saved to simulation history.','good',null);
       postToParent('saved',Object.assign({},lastRun,{runId:res.runId}));})
-    .catch(()=>{UI.save.disabled=false;UI.save.textContent='💾 Save to history';ev(lastRun.durationSimMinutes,'Could not reach the database — this run was not saved.','warn',null);
+    .catch(()=>{UI.save.disabled=false;UI.save.textContent='Save to history';ev(lastRun.durationSimMinutes,'Could not reach the database — this run was not saved.','warn',null);
       postToParent('saveFailed',lastRun);});
 }
 document.getElementById('simSave').onclick=saveRun;
