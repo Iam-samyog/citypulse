@@ -1,0 +1,57 @@
+[
+  {
+    "id": "cold-open",
+    "text": "Every city has an Odyssey. This is Oracle of Ithaca.",
+    "duration": 3.657142857142857
+  },
+  {
+    "id": "overview",
+    "text": "A living city model: thirty-eight infrastructure assets, sixty-nine dependency links, four districts, watched in real time.",
+    "duration": 8.385306122448979
+  },
+  {
+    "id": "incidents",
+    "text": "Every incident has a name, an origin, and a blast radius, and the dashboard shows exactly what it touches downstream.",
+    "duration": 7.131428571428572
+  },
+  {
+    "id": "cascade",
+    "text": "One failure. A graph decides the rest. A deterministic engine calculates how damage spreads, and when crews respond, the same graph runs in reverse, healing it block by block.",
+    "duration": 11.781224489795918
+  },
+  {
+    "id": "intel",
+    "text": "Athena explains what happened. The Oracle helps you decide what's next. Two Gemini powered advisors, grounded in the live city. Always counsel, never control.",
+    "duration": 10.866938775510205
+  },
+  {
+    "id": "sponsor-gemini",
+    "text": "Built with Gemini.",
+    "duration": 1.3322448979591837
+  },
+  {
+    "id": "sponsor-mongodb",
+    "text": "MongoDB Atlas.",
+    "duration": 1.619591836734694
+  },
+  {
+    "id": "sponsor-elevenlabs",
+    "text": "Eleven Labs.",
+    "duration": 1.0971428571428572
+  },
+  {
+    "id": "sponsor-vultr",
+    "text": "Vultr.",
+    "duration": 0.8620408163265306
+  },
+  {
+    "id": "sponsor-godaddy",
+    "text": "And GoDaddy.",
+    "duration": 1.0971428571428572
+  },
+  {
+    "id": "closing",
+    "text": "Ithaca comes back online, not because the danger wasn't real, but because the choices were good. Oracle of Ithaca. A HackUTA submission.",
+    "duration": 8.80326530612245
+  }
+]

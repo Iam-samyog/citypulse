@@ -1,7 +1,7 @@
 import React from 'react';
-import {AbsoluteFill, Sequence} from 'remotion';
-import {KenBurns} from './components/KenBurns';
+import {AbsoluteFill, Audio, Sequence, staticFile} from 'remotion';
 import {DeviceFrame} from './components/DeviceFrame';
+import {CityInteraction} from './components/CityInteraction';
 import {GraphCascade} from './components/GraphCascade';
 import {EmberField} from './components/EmberField';
 import {KineticWords, ShimmerText} from './components/KineticText';
@@ -13,23 +13,23 @@ import {SponsorStory} from './components/SponsorStory';
 import {colors, displayFont, uiFont} from './theme';
 
 const COLD_OPEN = 180;
-const OVERVIEW = 780;
-const INCIDENTS = 720;
-const CASCADE = 1140;
-const CASCADE_LOADING = 90;
-const CASCADE_GRAPH = 600;
-const CASCADE_PROOF = CASCADE - CASCADE_LOADING - CASCADE_GRAPH;
-const INTEL = 900;
-const INTEL_ADVISORS = 480;
-const INTEL_ATHENA = INTEL - INTEL_ADVISORS;
-const SPONSOR_INTRO = 100;
-const STORY_DURATION = 165;
-const SPONSORS_TOTAL = 5;
-const SPONSORS = SPONSOR_INTRO + STORY_DURATION * SPONSORS_TOTAL;
-const CLOSING = 480;
+const OVERVIEW = 360;
+const INCIDENTS = 330;
+const CASCADE_GRAPH = 495;
+const CASCADE_PROOF = 153;
+const CASCADE = CASCADE_GRAPH + CASCADE_PROOF;
+const INTEL_ADVISORS = 210;
+const INTEL_ATHENA = 210;
+const INTEL = INTEL_ADVISORS + INTEL_ATHENA;
+const SPONSOR_INTRO = 60;
+const SPONSOR_DURATIONS = [66, 72, 60, 54, 60];
+const SPONSORS = SPONSOR_INTRO + SPONSOR_DURATIONS.reduce((a, b) => a + b, 0);
+const CLOSING = 390;
 
 export const TOTAL_DURATION =
 	COLD_OPEN + OVERVIEW + INCIDENTS + CASCADE + INTEL + SPONSORS + CLOSING;
+
+const VO = (id: string) => <Audio src={staticFile(`audio/${id}.mp3`)} />;
 
 const Eyebrow: React.FC<{numeral: string; label: string; delay?: number}> = ({numeral, label, delay = 0}) => (
 	<div
@@ -87,7 +87,7 @@ const SceneTitle: React.FC<{
 				textShadow: '0 6px 30px rgba(0,0,0,0.6)',
 			}}
 		>
-			<KineticWords text={title} delay={16} stagger={3} />
+			<KineticWords text={title} delay={10} stagger={2} />
 		</div>
 		<div
 			style={{
@@ -98,7 +98,7 @@ const SceneTitle: React.FC<{
 				lineHeight: 1.5,
 			}}
 		>
-			<KineticWords text={subtitle} delay={34} stagger={1} />
+			<KineticWords text={subtitle} delay={22} stagger={0.8} />
 		</div>
 	</div>
 );
@@ -117,6 +117,7 @@ export const OracleOfIthaca: React.FC = () => {
 			{/* 1. COLD OPEN */}
 			<Sequence from={0} durationInFrames={COLD_OPEN}>
 				<CinematicScene durationInFrames={COLD_OPEN}>
+					<Sequence from={21}>{VO('cold-open')}</Sequence>
 					<BgWash />
 					<EmberField count={50} intensity={1.2} />
 					<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center'}}>
@@ -135,11 +136,7 @@ export const OracleOfIthaca: React.FC = () => {
 							</div>
 							<ShimmerText text="ORACLE OF ITHACA" fontFamily={displayFont} fontSize={118} delay={20} />
 							<div style={{marginTop: 30, fontFamily: uiFont, fontSize: 26, color: colors.parchmentDim}}>
-								<KineticWords
-									text="Every city has an Odyssey. Every failure is a trial. Every recovery is a return."
-									delay={55}
-									stagger={2}
-								/>
+								<KineticWords text="Every city has an Odyssey. This is Oracle of Ithaca." delay={21} stagger={2} />
 							</div>
 						</div>
 					</AbsoluteFill>
@@ -149,6 +146,7 @@ export const OracleOfIthaca: React.FC = () => {
 			{/* 2. OVERVIEW */}
 			<Sequence from={COLD_OPEN} durationInFrames={OVERVIEW}>
 				<CinematicScene durationInFrames={OVERVIEW}>
+					<Sequence from={30}>{VO('overview')}</Sequence>
 					<BgWash />
 					<EmberField count={16} intensity={0.4} />
 					<AbsoluteFill style={{flexDirection: 'row', alignItems: 'center', padding: '0 100px', gap: 70}}>
@@ -156,17 +154,18 @@ export const OracleOfIthaca: React.FC = () => {
 							numeral="I"
 							eyebrow="The City At A Glance"
 							title="A living operations dashboard"
-							subtitle="38 infrastructure assets, four districts, one deterministic dependency graph — monitored in real time."
+							subtitle="38 infrastructure assets, 69 dependency links, four districts — watched in real time."
 						/>
 						<div style={{flex: 1, display: 'flex', justifyContent: 'center'}}>
 							<DeviceFrame src="captures/01-overview.jpg" durationInFrames={OVERVIEW} delay={10} width={1000} panY={-40} />
 						</div>
 					</AbsoluteFill>
 					<AbsoluteFill style={{justifyContent: 'flex-end', paddingBottom: 90}}>
-						<div style={{display: 'flex', justifyContent: 'center', gap: 90}}>
-							<StatBlock value={38} label="Assets" delay={56} />
-							<StatBlock value={4} label="Districts" delay={66} />
-							<StatBlock value={84} suffix="K" label="Residents" delay={76} />
+						<div style={{display: 'flex', justifyContent: 'center', gap: 70}}>
+							<StatBlock value={38} label="Assets" delay={34} />
+							<StatBlock value={69} label="Dependency Links" delay={40} />
+							<StatBlock value={4} label="Districts" delay={46} />
+							<StatBlock value={84} suffix="K" label="Residents" delay={52} />
 						</div>
 					</AbsoluteFill>
 				</CinematicScene>
@@ -175,6 +174,7 @@ export const OracleOfIthaca: React.FC = () => {
 			{/* 3. INCIDENTS */}
 			<Sequence from={COLD_OPEN + OVERVIEW} durationInFrames={INCIDENTS}>
 				<CinematicScene durationInFrames={INCIDENTS}>
+					<Sequence from={30}>{VO('incidents')}</Sequence>
 					<BgWash tint="#2a0a08" />
 					<EmberField count={20} intensity={0.55} />
 					<AbsoluteFill style={{flexDirection: 'row-reverse', alignItems: 'center', padding: '0 100px', gap: 70}}>
@@ -182,17 +182,30 @@ export const OracleOfIthaca: React.FC = () => {
 							numeral="II"
 							eyebrow="The Disruption"
 							title="Active incidents, named and traced"
-							subtitle="A ruptured pipeline. A communications outage. Every record names its origin asset and what it touches downstream."
+							subtitle="Every record names its origin asset and what it touches downstream."
 						/>
 						<div style={{flex: 1, display: 'flex', justifyContent: 'center'}}>
 							<DeviceFrame src="captures/02-incidents.jpg" durationInFrames={INCIDENTS} delay={10} width={1000} tiltIn={8} panY={-30} />
 						</div>
 					</AbsoluteFill>
 					<AbsoluteFill style={{justifyContent: 'flex-end', paddingBottom: 90}}>
-						<div style={{display: 'flex', justifyContent: 'center', gap: 90}}>
-							<StatBlock value={153} label="Simulated events" delay={56} />
-							<StatBlock value={3} label="Open now" delay={66} />
-							<StatBlock value={22} label="Critical" delay={76} />
+						<div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20}}>
+							<div style={{display: 'flex', justifyContent: 'center', gap: 70}}>
+								<StatBlock value={153} label="Simulated events" delay={32} />
+								<StatBlock value={3} label="Open now" delay={38} />
+								<StatBlock value={22} label="Critical" delay={44} />
+							</div>
+							<div
+								style={{
+									fontFamily: uiFont,
+									fontSize: 15,
+									letterSpacing: 3,
+									textTransform: 'uppercase',
+									color: colors.parchmentDim,
+								}}
+							>
+								<KineticWords text="Power · Water · Fire · Flood · Raid · Earthquake" delay={70} stagger={1.2} />
+							</div>
 						</div>
 					</AbsoluteFill>
 				</CinematicScene>
@@ -202,14 +215,10 @@ export const OracleOfIthaca: React.FC = () => {
 			<Sequence from={COLD_OPEN + OVERVIEW + INCIDENTS} durationInFrames={CASCADE}>
 				<AbsoluteFill>
 					<BgWash tint="#210806" />
-					<Sequence from={0} durationInFrames={CASCADE_LOADING}>
-						<CinematicScene durationInFrames={CASCADE_LOADING}>
-							<KenBurns src="captures/05-loading.jpg" durationInFrames={CASCADE_LOADING} direction="in" dim={0.05} />
-						</CinematicScene>
-					</Sequence>
 
-					<Sequence from={CASCADE_LOADING} durationInFrames={CASCADE_GRAPH}>
+					<Sequence from={0} durationInFrames={CASCADE_GRAPH}>
 						<CinematicScene durationInFrames={CASCADE_GRAPH}>
+							<Sequence from={45}>{VO('cascade')}</Sequence>
 							<EmberField count={24} intensity={0.5} />
 							<AbsoluteFill style={{padding: '70px 100px'}}>
 								<Eyebrow numeral="III" label="The Cascade" delay={4} />
@@ -226,10 +235,10 @@ export const OracleOfIthaca: React.FC = () => {
 							</AbsoluteFill>
 							<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center', paddingTop: 60}}>
 								<div style={{width: '82%', height: '72%'}}>
-									<GraphCascade delay={40} recoverAt={250} />
+									<GraphCascade delay={45} recoverAt={220} />
 								</div>
 							</AbsoluteFill>
-							<Sequence from={140} durationInFrames={160}>
+							<Sequence from={120} durationInFrames={170}>
 								<LowerThird kicker="Deterministic Engine" line="lib/simulation/ — not scripted, not AI" delay={0} />
 							</Sequence>
 							<Sequence from={300} durationInFrames={CASCADE_GRAPH - 300}>
@@ -239,22 +248,28 @@ export const OracleOfIthaca: React.FC = () => {
 									delay={0}
 								/>
 							</Sequence>
+							<Sequence from={400} durationInFrames={CASCADE_GRAPH - 400}>
+								<AbsoluteFill style={{alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 150}}>
+									<div
+										style={{
+											fontFamily: uiFont,
+											fontSize: 16,
+											letterSpacing: 2,
+											color: colors.bronzeLight,
+										}}
+									>
+										<KineticWords text="38 assets · 69 links · 4 districts, all recalculated" delay={0} stagger={1} />
+									</div>
+								</AbsoluteFill>
+							</Sequence>
 						</CinematicScene>
 					</Sequence>
 
-					<Sequence from={CASCADE_LOADING + CASCADE_GRAPH} durationInFrames={CASCADE_PROOF}>
+					<Sequence from={CASCADE_GRAPH} durationInFrames={CASCADE_PROOF}>
 						<CinematicScene durationInFrames={CASCADE_PROOF}>
 							<EmberField count={18} intensity={0.5} />
 							<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center'}}>
-								<DeviceFrame
-									src="captures/08-crisis-cascade.jpg"
-									durationInFrames={CASCADE_PROOF}
-									delay={6}
-									width={1480}
-									tiltIn={0}
-									panY={-20}
-									zoomTo={1.1}
-								/>
+								<CityInteraction durationInFrames={CASCADE_PROOF} delay={6} width={1480} />
 							</AbsoluteFill>
 							<LowerThird kicker="Same Graph, Live" line="The 3D twin mirrors it block by block" delay={14} />
 						</CinematicScene>
@@ -266,6 +281,8 @@ export const OracleOfIthaca: React.FC = () => {
 			<Sequence from={COLD_OPEN + OVERVIEW + INCIDENTS + CASCADE} durationInFrames={INTEL}>
 				<AbsoluteFill>
 					<BgWash />
+					<Sequence from={30}>{VO('intel')}</Sequence>
+
 					<Sequence from={0} durationInFrames={INTEL_ADVISORS}>
 						<CinematicScene durationInFrames={INTEL_ADVISORS}>
 							<EmberField count={16} intensity={0.4} />
@@ -274,10 +291,21 @@ export const OracleOfIthaca: React.FC = () => {
 									numeral="IV"
 									eyebrow="The Intelligence"
 									title="Athena explains. The Oracle foresees."
-									subtitle="Two Gemini-powered advisors, grounded in the live city and its simulated history. Always advisory, never in control."
+									subtitle="Always advisory, never in control."
 								/>
-								<div style={{flex: 1, display: 'flex', justifyContent: 'center'}}>
+								<div style={{flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14}}>
 									<DeviceFrame src="captures/03-advisors.jpg" durationInFrames={INTEL_ADVISORS} delay={10} width={1000} panY={-30} />
+									<div
+										style={{
+											fontFamily: uiFont,
+											fontSize: 15,
+											letterSpacing: 2,
+											color: colors.parchmentDim,
+											textTransform: 'uppercase',
+										}}
+									>
+										<KineticWords text="Athena explains incidents · The Oracle reviews recovery plans" delay={55} stagger={1} />
+									</div>
 								</div>
 							</AbsoluteFill>
 						</CinematicScene>
@@ -323,9 +351,10 @@ export const OracleOfIthaca: React.FC = () => {
 							icon: 'ai' as const,
 							accent: '#6c8dff',
 							eyebrow: 'MLH Partner Challenge',
-							name: 'Google Gemini',
+							name: 'Gemini',
 							blurb: 'Athena explains. The Oracle foresees.',
-							detail: 'gemini-3.6-flash powers two advisory personas, grounded in the live city graph — never in control of it.',
+							detail: 'Two advisor personas, grounded in the live city graph.',
+							audio: 'sponsor-gemini',
 						},
 						{
 							icon: 'database' as const,
@@ -333,7 +362,8 @@ export const OracleOfIthaca: React.FC = () => {
 							eyebrow: 'MLH Partner Challenge',
 							name: 'MongoDB Atlas',
 							blurb: 'Every incident has a memory.',
-							detail: 'Infrastructure, incidents, repair timelines and simulator runs — the whole incident-to-recovery lifecycle, persisted.',
+							detail: 'Full incident-to-recovery lifecycle, persisted.',
+							audio: 'sponsor-mongodb',
 						},
 						{
 							icon: 'voice' as const,
@@ -341,15 +371,17 @@ export const OracleOfIthaca: React.FC = () => {
 							eyebrow: 'MLH Partner Challenge',
 							name: 'ElevenLabs',
 							blurb: 'The city can speak for itself.',
-							detail: 'Emergency alerts reach Telegram as text and as an AI voice note the instant Ithaca declares a crisis.',
+							detail: 'Text + spoken audio, delivered over Telegram.',
+							audio: 'sponsor-elevenlabs',
 						},
 						{
 							icon: 'cloud' as const,
 							accent: '#5fc9d8',
 							eyebrow: 'MLH Partner Challenge',
 							name: 'Vultr',
-							blurb: 'One server. Zero Docker. Real HTTPS.',
-							detail: 'Oracle of Ithaca ships to a single Vultr Cloud Compute instance behind Caddy — small on purpose.',
+							blurb: 'One server. Real HTTPS.',
+							detail: 'Zero Docker — Cloud Compute, behind Caddy.',
+							audio: 'sponsor-vultr',
 						},
 						{
 							icon: 'domain' as const,
@@ -357,31 +389,39 @@ export const OracleOfIthaca: React.FC = () => {
 							eyebrow: 'MLH Partner Challenge',
 							name: 'GoDaddy',
 							blurb: 'Ithaca needed a home on the map.',
-							detail: 'ithaca.city — registered, pointed at the Vultr server, and live under its own name.',
+							detail: 'oracleofithaca.us — registered and live.',
+							audio: 'sponsor-godaddy',
 						},
-					].map((s, i) => (
-						<Sequence key={s.name} from={SPONSOR_INTRO + i * STORY_DURATION} durationInFrames={STORY_DURATION}>
-							<StorySwipe durationInFrames={STORY_DURATION}>
-								<SponsorStory
-									index={i}
-									total={SPONSORS_TOTAL}
-									localDuration={STORY_DURATION}
-									icon={s.icon}
-									accent={s.accent}
-									eyebrow={s.eyebrow}
-									name={s.name}
-									blurb={s.blurb}
-									detail={s.detail}
-								/>
-							</StorySwipe>
-						</Sequence>
-					))}
+					].map((s, i) => {
+						const from = SPONSOR_INTRO + SPONSOR_DURATIONS.slice(0, i).reduce((a, b) => a + b, 0);
+						const duration = SPONSOR_DURATIONS[i];
+						return (
+							<Sequence key={s.name} from={from} durationInFrames={duration}>
+								<StorySwipe durationInFrames={duration}>
+									<Sequence from={9}>{VO(s.audio)}</Sequence>
+									<SponsorStory
+										index={i}
+										total={SPONSOR_DURATIONS.length}
+										localDuration={duration}
+										icon={s.icon}
+										accent={s.accent}
+										eyebrow={s.eyebrow}
+										name={s.name}
+										blurb={s.blurb}
+										detail={s.detail}
+										compact
+									/>
+								</StorySwipe>
+							</Sequence>
+						);
+					})}
 				</AbsoluteFill>
 			</Sequence>
 
 			{/* 7. CLOSING */}
 			<Sequence from={COLD_OPEN + OVERVIEW + INCIDENTS + CASCADE + INTEL + SPONSORS} durationInFrames={CLOSING}>
 				<CinematicScene durationInFrames={CLOSING}>
+					<Sequence from={30}>{VO('closing')}</Sequence>
 					<BgWash />
 					<EmberField count={54} intensity={1.1} />
 					<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center'}}>
@@ -401,9 +441,25 @@ export const OracleOfIthaca: React.FC = () => {
 							<ShimmerText text="ITHACA COMES BACK ONLINE" fontFamily={displayFont} fontSize={72} delay={16} />
 							<div style={{marginTop: 26, fontFamily: uiFont, fontSize: 24, color: colors.parchmentDim}}>
 								<KineticWords
-									text="A city model that shows how failures cascade — and how a coordinated recovery brings it home."
+									text="Not because the danger wasn't real — but because the choices were good."
 									delay={46}
 									stagger={1.5}
+								/>
+							</div>
+							<div
+								style={{
+									marginTop: 20,
+									fontFamily: uiFont,
+									fontSize: 16,
+									letterSpacing: 2,
+									textTransform: 'uppercase',
+									color: colors.bronze,
+								}}
+							>
+								<KineticWords
+									text="Next: side-by-side recovery comparisons, deeper incident timelines."
+									delay={310}
+									stagger={0.8}
 								/>
 							</div>
 						</div>
@@ -419,6 +475,18 @@ export const OracleOfIthaca: React.FC = () => {
 							}}
 						>
 							ORACLE OF ITHACA — A HACKUTA SUBMISSION
+						</div>
+						<div
+							style={{
+								fontFamily: uiFont,
+								fontSize: 16,
+								letterSpacing: 1,
+								color: colors.bronzeLight,
+								marginTop: 10,
+								opacity: 0.9,
+							}}
+						>
+							oracleofithaca.us · github.com/Iam-samyog/citypulse
 						</div>
 					</AbsoluteFill>
 				</CinematicScene>

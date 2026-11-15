@@ -15,15 +15,17 @@ export const SponsorStory: React.FC<{
 	eyebrow: string;
 	name: string;
 	blurb: string;
-	detail: string;
-}> = ({index, total, localDuration, icon, accent, eyebrow, name, blurb, detail}) => {
+	detail?: string;
+	compact?: boolean;
+}> = ({index, total, localDuration, icon, accent, eyebrow, name, blurb, detail, compact = false}) => {
 	const frame = useCurrentFrame();
 	const {fps} = useVideoConfig();
 
-	const iconSpring = spring({frame: frame - 14, fps, config: {damping: 14, mass: 0.6}});
+	const iconDelay = compact ? 5 : 14;
+	const iconSpring = spring({frame: frame - iconDelay, fps, config: {damping: 14, mass: 0.6}});
 	const iconScale = interpolate(iconSpring, [0, 1], [0.4, 1]);
-	const iconOpacity = interpolate(frame, [10, 24], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-	const ringPulse = interpolate(frame, [14, 30, 46], [0, 1, 0], {
+	const iconOpacity = interpolate(frame, [2, 12], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+	const ringPulse = interpolate(frame, [iconDelay, iconDelay + 12, iconDelay + 24], [0, 1, 0], {
 		extrapolateLeft: 'clamp',
 		extrapolateRight: 'clamp',
 	});
@@ -72,47 +74,66 @@ export const SponsorStory: React.FC<{
 					<div
 						style={{
 							fontFamily: uiFont,
-							fontSize: 18,
+							fontSize: compact ? 15 : 18,
 							letterSpacing: 5,
 							textTransform: 'uppercase',
 							color: accent,
-							marginBottom: 14,
+							marginBottom: compact ? 10 : 14,
 						}}
 					>
-						<KineticWords text={eyebrow} delay={4} stagger={1.5} />
+						<KineticWords text={eyebrow} delay={compact ? 1 : 4} stagger={compact ? 0.8 : 1.5} />
 					</div>
 					<div
 						style={{
 							fontFamily: displayFont,
-							fontSize: 76,
+							fontSize: compact ? 68 : 76,
 							color: colors.parchment,
 							textShadow: '0 6px 30px rgba(0,0,0,0.6)',
 						}}
 					>
-						<KineticWords text={name} delay={12} stagger={2.5} />
+						<KineticWords text={name} delay={compact ? 5 : 12} stagger={compact ? 1.4 : 2.5} />
 					</div>
 					<div
 						style={{
 							fontFamily: uiFont,
-							fontSize: 26,
+							fontSize: compact ? 22 : 26,
 							color: colors.bronzeLight,
-							marginTop: 24,
+							marginTop: compact ? 16 : 24,
 							fontWeight: 600,
 						}}
 					>
-						<KineticWords text={blurb} delay={26} stagger={1.2} />
+						<KineticWords text={blurb} delay={compact ? 14 : 26} stagger={compact ? 0.8 : 1.2} />
 					</div>
-					<div
-						style={{
-							fontFamily: uiFont,
-							fontSize: 19,
-							color: colors.parchmentDim,
-							marginTop: 14,
-							lineHeight: 1.5,
-						}}
-					>
-						<KineticWords text={detail} delay={36} stagger={0.8} />
-					</div>
+					{detail && compact ? (
+						<div
+							style={{
+								fontFamily: uiFont,
+								fontSize: 15,
+								letterSpacing: 0.5,
+								color: colors.parchmentDim,
+								marginTop: 10,
+								opacity: interpolate(frame, [26, 34], [0, 1], {
+									extrapolateLeft: 'clamp',
+									extrapolateRight: 'clamp',
+								}),
+							}}
+						>
+							{detail}
+						</div>
+					) : null}
+					{detail && !compact ? (
+						<div
+							style={{
+								fontFamily: uiFont,
+								fontSize: 19,
+								color: colors.parchmentDim,
+								marginTop: 14,
+								lineHeight: 1.5,
+							}}
+						>
+							<KineticWords text={detail} delay={36} stagger={0.8} />
+						</div>
+					) : null}
 				</div>
 			</AbsoluteFill>
 		</AbsoluteFill>

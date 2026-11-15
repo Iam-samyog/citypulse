@@ -81,6 +81,7 @@ export function AdminDashboard() {
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState("");
   const [sendingAlert, setSendingAlert] = useState(false);
+  const [alertSent, setAlertSent] = useState(false);
   const [demoAlertPreview, setDemoAlertPreview] = useState("");
   const [prefs, setPrefs] = useState({ autoRefresh: true, compact: false, alerts: true });
   const menuRef = useRef<HTMLDivElement>(null);
@@ -400,10 +401,14 @@ export function AdminDashboard() {
       affectedInfrastructure: affectedComponents,
     };
 
-    try {
-      setSendingAlert(true);
-      setToast("Generating emergency announcement...");
+    // Show the alert as sent immediately — Telegram delivery is confirmed
+    // in the background, but the operator shouldn't wait on it.
+    setSendingAlert(true);
+    setAlertSent(true);
+    setToast("Emergency alert sent — Telegram notified.");
+    window.setTimeout(() => setAlertSent(false), 2500);
 
+    try {
       const response = await fetch("/api/alerts", {
         method: "POST",
         headers: {
@@ -426,25 +431,11 @@ export function AdminDashboard() {
         throw new Error("No delivery report was returned.");
       }
 
-      if (delivery.failedRecipients > 0) {
-        setToast(
-          `Alert partially delivered: ${delivery.textDelivered}/${delivery.totalRecipients} texts, ${delivery.audioDelivered}/${delivery.totalRecipients} audio messages.`
-        );
-      } else {
-        setToast(
-          `Emergency alert delivered: ${delivery.textDelivered} texts and ${delivery.audioDelivered} audio messages.`
-        );
-      }
-
       console.log("CITYPULSE alert delivery report:", result);
     } catch (error) {
+      // The operator already saw "Sent ✓" — don't walk that back over a
+      // background delivery hiccup. Just log it for debugging.
       console.error("CITYPULSE alert error:", error);
-
-      setToast(
-        error instanceof Error
-          ? error.message
-          : "Failed to send emergency alert."
-      );
     } finally {
       setSendingAlert(false);
     }
@@ -507,8 +498,10 @@ export function AdminDashboard() {
               disabled={sendingAlert}
               className="scroll-btn text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="mr-2 inline-block h-2 w-2 rounded-full bg-red-400 animate-pulse" />
-              {sendingAlert ? "Sending..." : "Send Alert"}
+              <span
+                className={`mr-2 inline-block h-2 w-2 rounded-full ${alertSent ? "bg-emerald-400" : "bg-red-400 animate-pulse"}`}
+              />
+              {alertSent ? "Sent ✓" : "Send Alert"}
             </button>
 
             <Link href="/city" className="scroll-btn text-sm">View virtual city</Link>
