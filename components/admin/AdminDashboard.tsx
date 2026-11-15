@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Torch } from "@/components/dashboard/Torch";
 import { CityDemographics } from "@/components/dashboard/CityDemographics";
+import { RecoveryWorkbench } from "@/components/dashboard/RecoveryWorkbench";
+import { SimulatedIncidentGenerator } from "@/components/dashboard/SimulatedIncidentGenerator";
 import { ChatbotWidget } from "@/components/ai/ChatbotWidget";
 import { buildAthenaPrompts, buildOraclePrompts, type QuickData } from "@/lib/ai/quickInsights";
 import { buildHistory, summarizeHistory, HISTORY_DAYS } from "@/lib/data/history";
@@ -68,7 +70,6 @@ export function AdminDashboard() {
   const [sendingAlert, setSendingAlert] = useState(false);
   const [prefs, setPrefs] = useState({ autoRefresh: true, compact: false, alerts: true });
   const menuRef = useRef<HTMLDivElement>(null);
-  const [dataSource, setDataSource] = useState<"loading" | "mongodb" | "fixture">("loading");
 
   const [simLive, setSimLive] = useState<SimLiveState | null>(null);
   const [simFinished, setSimFinished] = useState<SimFinishedRun | null>(null);
@@ -131,8 +132,7 @@ export function AdminDashboard() {
       if (infrastructure.status === "fulfilled") {
         setComponents(infrastructure.value.components ?? []);
         setDependencies(infrastructure.value.dependencies ?? []);
-        setDataSource(infrastructure.value.source === "mongodb" ? "mongodb" : "fixture");
-      } else setDataSource("fixture");
+      }
       if (incidentData.status === "fulfilled") setIncidents(incidentData.value.incidents ?? []);
     });
     return () => { mounted = false; };
@@ -438,8 +438,6 @@ export function AdminDashboard() {
         <div className="hidden sm:block"><p className="text-lg font-semibold">{active}</p><p className="mt-0.5 text-[12px] text-[#d8ccb0]/70">{active === "Overview" ? "Monitor city systems and operational readiness" : active === "Infrastructure" ? "Every monitored asset across the city" : active === "Incidents" ? "Active and historical incidents" : active === "Simulator" ? "Live insights from the 3D crisis simulator" : "Athena and Oracle intelligence layer"}</p></div>
         <div className="flex items-center gap-2 sm:gap-3">
           <SearchBox className="hidden h-10 w-64 md:flex" query={query} setQuery={setQuery} results={results} open={searchOpen} setOpen={setSearchOpen} />
-          <span className="flex h-10 items-center gap-2 rounded-xl border border-[#c9a24b]/25 bg-[#1f100d]/55 backdrop-blur-[3px] px-3 text-[11px] uppercase tracking-wider text-[#d8ccb0]/70"><span className={`h-2 w-2 rounded-full ${dataSource === "mongodb" ? "bg-emerald-400" : dataSource === "fixture" ? "bg-amber-400" : "animate-pulse bg-slate-300"}`} />{dataSource === "mongodb" ? "Live data" : dataSource === "fixture" ? "Demo data" : "Connecting"}</span>
-          <a href="/simulator/index.html" target="_blank" className="scroll-btn text-xs uppercase tracking-wider">Open Simulator ↗</a>
           <Link href="/city" className="scroll-btn text-xs uppercase tracking-wider">3D City ↗</Link>
         </div>
       </header>
@@ -532,7 +530,13 @@ export function AdminDashboard() {
           </tbody></table></div>
         </Card>}
 
-        {active === "Incidents" && <Card title="Incidents" subtitle={`${scopedIncidents.length} recorded · ${activeIncidents.length} active`}><IncidentList incidents={scopedIncidents} /></Card>}
+        {active === "Incidents" && <>
+          <SimulatedIncidentGenerator onGenerated={(created) => {
+            setIncidents((current) => [...created, ...current].sort((a, b) => b.startTime.localeCompare(a.startTime)));
+            setToast(`${created.length} simulated historical incidents added`);
+          }} />
+          <Card title="Incidents" subtitle={`${scopedIncidents.length} recorded · ${activeIncidents.length} active`}><IncidentList incidents={scopedIncidents} /></Card>
+        </>}
 
         {active === "Advisors" && (
           <>
@@ -574,7 +578,30 @@ export function AdminDashboard() {
                   })}
                 </div> : <EmptyActivity />}
               </Card>
-              {selectedRun ? <RunOverview run={selectedRun} onClose={() => setSelectedRunId(null)} /> : selected && <IncidentOverview incident={selected} components={allComponents} />}
+              {selectedRun ? <RunOverview run={selectedRun} onClose={() => setSelectedRunId(null)} /> : selected && <>
+                <IncidentOverview incident={selected} components={allComponents} />
+                {selected.incidentStatus !== "resolved" && <RecoveryWorkbench
+                  key={selected.incidentId}
+                  incident={selected}
+                  origin={allComponents.find((component) => component.id === selected.componentId)}
+                  onSaved={(result) => {
+                    setIncidents((current) => current.map((item) => item.incidentId === selected.incidentId
+                      ? { ...item, incidentStatus: result.incidentResolved ? "resolved" : "recovering" }
+                      : item));
+                    setComponents((current) => {
+                      const statusById = new Map(result.statuses.map((status) => [status.componentId, status.status]));
+                      return current.map((component) => ({ ...component, status: statusById.get(component.id) ?? component.status }));
+                    });
+                    setToast(result.incidentResolved ? "Restoration verified · incident resolved" : `Recovery progress saved · ${result.repair.repairStatus.replace(/_/g, " ")}`);
+                  }}
+                />}
+                {selected.incidentStatus === "resolved" && <RecoveryWorkbench
+                  key={selected.incidentId}
+                  incident={selected}
+                  origin={allComponents.find((component) => component.id === selected.componentId)}
+                  onSaved={() => undefined}
+                />}
+              </>}
             </div>
             <div className="flex flex-col gap-5">
               <Card title="3D crisis simulator" subtitle="Opens full-screen in its own window">

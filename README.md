@@ -23,6 +23,7 @@ one guide per member in `docs/`.
 npm install
 cp .env.example .env.local   # fill in MONGODB_URI and GEMINI_API_KEY
 npm run seed                 # loads the fixture city into MongoDB
+npm run seed:demo            # adds presentation history and simulator runs
 npm run dev
 ```
 
@@ -33,7 +34,9 @@ Sign in with the demo account: **operator** / **Ithaca2026!**. Set
 change it. Production deployments must configure these values. The demo city
 fixture contains 38 simulated infrastructure assets, 69 dependency links, and
 4 districts; `/api/infrastructure` can serve that fixture when MongoDB is
-unavailable.
+unavailable. `npm run seed:demo` adds a repeatable 180-day simulated incident
+record, repair timelines, and saved simulator runs. It replaces only records
+tagged by the demo seeder and preserves other records.
 
 The dashboard's **AI Assistants** section includes Athena chat, powered by
 Gemini. Set `GEMINI_API_KEY` in `.env.local`; the key is used server-side and

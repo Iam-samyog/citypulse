@@ -6,6 +6,22 @@ import { applyRepair, isRepairComplete } from "@/lib/simulation/recoveryEngine";
 import type { Incident } from "@/types/incident";
 import type { RepairOperation, RepairStage, VerificationStatus } from "@/types/recovery";
 
+/** GET /api/recovery?incidentId=... returns the repair history for one incident. */
+export async function GET(request: Request) {
+  const incidentId = new URL(request.url).searchParams.get("incidentId");
+  if (!incidentId) {
+    return NextResponse.json({ error: "incidentId is required" }, { status: 400 });
+  }
+
+  const db = await getDb();
+  const repairs = await db
+    .collection<RepairOperation>(collections.repairOperations)
+    .find({ incidentId }, { projection: { _id: 0 } })
+    .sort({ actualCompletion: -1, estimatedCompletion: -1 })
+    .toArray();
+  return NextResponse.json({ repairs });
+}
+
 interface RecoveryRequestBody {
   incidentId: string;
   componentId: string;
@@ -59,7 +75,14 @@ export async function POST(request: Request) {
 
   await db
     .collection(collections.repairOperations)
-    .updateOne({ repairId: repair.repairId }, { $set: repair }, { upsert: true });
+    .updateOne(
+      { repairId: repair.repairId },
+      {
+        $set: repair,
+        ...(body.repairStatus === "restored" ? {} : { $unset: { actualCompletion: "" } }),
+      },
+      { upsert: true }
+    );
 
   const closesIncident = isRepairComplete(repair) && repair.componentId === incident.componentId;
   if (closesIncident) {

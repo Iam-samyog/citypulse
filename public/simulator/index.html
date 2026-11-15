@@ -66,7 +66,8 @@ tailwind.config = { theme: { extend: {
   .stp:hover:not(:disabled){background:rgba(214,163,92,.2)}
   .stp.add{background:rgba(214,163,92,.22);color:#f5deb3}
   .stp:disabled{opacity:.3;cursor:not-allowed}
-  .oicon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font-size:16px}
+  .oicon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center}
+  .ui-icon{display:inline-block;vertical-align:middle;flex:none}
   .counsel{display:block;text-align:left;width:100%;padding:7px 9px;border-radius:10px;border:1px solid rgba(156,195,230,.45);background:rgba(156,195,230,.1);transition:background .15s}
   .counsel:hover{background:rgba(156,195,230,.22)}
   .counsel b{display:block;font-size:12px;color:#dbeafe;font-weight:600}
@@ -86,7 +87,7 @@ tailwind.config = { theme: { extend: {
   .galert .gring{opacity:.95}
   .gbad .gring{animation:gpulse 1s ease-in-out infinite}
   @keyframes gpulse{50%{opacity:.25}}
-  .gic{text-anchor:middle;font-family:'Segoe UI Symbol','Noto Sans Symbols 2','DejaVu Sans',sans-serif;pointer-events:none}
+  .gic{pointer-events:none;overflow:visible}
   .glabel{fill:#d6d3d1;font-size:8.5px;text-anchor:middle;paint-order:stroke;stroke:#0b0906;stroke-width:3px;font-family:Inter,sans-serif;pointer-events:none}
   .gtier{fill:#8a7f72;font-size:9.5px;letter-spacing:.14em;font-family:Metamorphous,Cinzel,serif}
   .gact{fill:none;stroke-width:2.4;vector-effect:non-scaling-stroke;stroke-dasharray:6 4;animation:gdash .8s linear infinite;opacity:.95;pointer-events:none}
@@ -129,18 +130,18 @@ tailwind.config = { theme: { extend: {
 <!-- Left: crisis & development -->
 <div id="leftPanel" class="fixed top-4 left-4 bottom-[76px] z-10 w-[350px] max-w-[calc(100vw-2rem)] flex flex-col gap-2 pointer-events-none">
   <a href="/dashboard" class="dashboard-link self-start pointer-events-auto" aria-label="Return to the Oracle of Ithaca dashboard">
-    <span aria-hidden="true">←</span> Dashboard
+    <span data-icon="arrowLeft" aria-hidden="true"></span> Dashboard
   </a>
   <div class="glass rounded-2xl p-1.5 flex gap-1 pointer-events-auto shadow-2xl shrink-0">
-    <button class="mode on" data-mode="crisis">⚠ Crisis simulation</button>
-    <button class="mode" data-mode="dev">⚒ Development</button>
+    <button class="mode on inline-flex items-center justify-center gap-2" data-mode="crisis"><span data-icon="warning"></span>Crisis simulation</button>
+    <button class="mode inline-flex items-center justify-center gap-2" data-mode="dev"><span data-icon="hammer"></span>Development</button>
   </div>
   <div id="simPanel" class="glass rounded-2xl p-4 shadow-2xl pointer-events-auto overflow-y-auto scrolly min-h-0">
   <div class="flex gap-1 mb-3">
-    <button class="tab" data-scn="fire"><b>🔥</b>Palace fire</button>
-    <button class="tab" data-scn="rain"><b>🌧</b>Great rains</button>
-    <button class="tab" data-scn="attack"><b>⚔</b>Raiders</button>
-    <button class="tab" data-scn="quake"><b>🌋</b>Earthquake</button>
+    <button class="tab" data-scn="fire"><b data-icon="flame" data-size="18"></b>Palace fire</button>
+    <button class="tab" data-scn="rain"><b data-icon="rain" data-size="18"></b>Great rains</button>
+    <button class="tab" data-scn="attack"><b data-icon="swords" data-size="18"></b>Raiders</button>
+    <button class="tab" data-scn="quake"><b data-icon="mountain" data-size="18"></b>Earthquake</button>
   </div>
   <div class="flex items-start justify-between">
     <div>
@@ -181,9 +182,9 @@ tailwind.config = { theme: { extend: {
     <div class="font-display text-lg text-bronze-300 leading-tight">Grow Ithaca's infrastructure</div>
     <div class="flex justify-between text-[11px] mt-2"><span class="text-stone-400">Royal treasury</span><span id="devTreasury" class="text-bronze-300 transition-colors"></span></div>
     <div class="h-1 bg-black/40 rounded mt-1 overflow-hidden"><div id="devTBar" class="h-full bg-gradient-to-r from-amber-300 to-amber-600 transition-all" style="width:0"></div></div>
-  <div class="devrow"><span class="ic" style="color:#f43f5e">✚</span><div class="flex-1 min-w-0"><div class="text-sm text-stone-100">Hospitals <b id="dn_hospital" class="font-display text-bronze-300"></b> <span id="da_hospital" class="text-emerald-400 text-[11px]"></span></div><div class="text-[10px] text-stone-400 leading-snug">15 talents · +40 beds, care within reach</div></div><button id="dm_hospital" class="stp" title="Remove the last one you built">−</button><button id="dp_hospital" class="stp add" title="Build one on the best plot">+</button></div>
-  <div class="devrow"><span class="ic" style="color:#38bdf8">✎</span><div class="flex-1 min-w-0"><div class="text-sm text-stone-100">Schools <b id="dn_school" class="font-display text-bronze-300"></b> <span id="da_school" class="text-emerald-400 text-[11px]"></span></div><div class="text-[10px] text-stone-400 leading-snug">8 talents · +350 shelter places, learning nearby</div></div><button id="dm_school" class="stp" title="Remove the last one you built">−</button><button id="dp_school" class="stp add" title="Build one on the best plot">+</button></div>
-  <div class="devrow"><span class="ic" style="color:#e0a458">⛨</span><div class="flex-1 min-w-0"><div class="text-sm text-stone-100">Military bases <b id="dn_base" class="font-display text-bronze-300"></b> <span id="da_base" class="text-emerald-400 text-[11px]"></span></div><div class="text-[10px] text-stone-400 leading-snug">10 talents · +22 soldiers, fire & rescue crews</div></div><button id="dm_base" class="stp" title="Remove the last one you built">−</button><button id="dp_base" class="stp add" title="Build one on the best plot">+</button></div>
+  <div class="devrow"><span class="ic" style="color:#f43f5e"><span data-icon="hospital"></span></span><div class="flex-1 min-w-0"><div class="text-sm text-stone-100">Hospitals <b id="dn_hospital" class="font-display text-bronze-300"></b> <span id="da_hospital" class="text-emerald-400 text-[11px]"></span></div><div class="text-[10px] text-stone-400 leading-snug">15 talents · +40 beds, care within reach</div></div><button id="dm_hospital" class="stp" title="Remove the last one you built" aria-label="Remove hospital"><span data-icon="minus"></span></button><button id="dp_hospital" class="stp add" title="Build one on the best plot" aria-label="Build hospital"><span data-icon="plus"></span></button></div>
+  <div class="devrow"><span class="ic" style="color:#38bdf8"><span data-icon="school"></span></span><div class="flex-1 min-w-0"><div class="text-sm text-stone-100">Schools <b id="dn_school" class="font-display text-bronze-300"></b> <span id="da_school" class="text-emerald-400 text-[11px]"></span></div><div class="text-[10px] text-stone-400 leading-snug">8 talents · +350 shelter places, learning nearby</div></div><button id="dm_school" class="stp" title="Remove the last one you built" aria-label="Remove school"><span data-icon="minus"></span></button><button id="dp_school" class="stp add" title="Build one on the best plot" aria-label="Build school"><span data-icon="plus"></span></button></div>
+  <div class="devrow"><span class="ic" style="color:#e0a458"><span data-icon="shield"></span></span><div class="flex-1 min-w-0"><div class="text-sm text-stone-100">Military bases <b id="dn_base" class="font-display text-bronze-300"></b> <span id="da_base" class="text-emerald-400 text-[11px]"></span></div><div class="text-[10px] text-stone-400 leading-snug">10 talents · +22 soldiers, fire & rescue crews</div></div><button id="dm_base" class="stp" title="Remove the last one you built" aria-label="Remove military base"><span data-icon="minus"></span></button><button id="dp_base" class="stp add" title="Build one on the best plot" aria-label="Build military base"><span data-icon="plus"></span></button></div>
 
     <div class="text-[10px] text-stone-500 mt-1.5">Each new building goes on the surveyed plot where it helps the most people.</div>
     <div class="flex items-center gap-1 flex-wrap text-[11px] mt-3"><span class="text-stone-400 mr-1">Map</span>
@@ -200,6 +201,9 @@ tailwind.config = { theme: { extend: {
     <div class="flex items-end justify-between mt-3"><div><div class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400">Resilience score</div><div id="devScoreD" class="text-[11px]"></div></div><div id="devScore" class="font-display text-3xl text-bronze-300">0</div></div>
     <div class="h-1.5 bg-black/40 rounded mt-1 overflow-hidden"><div id="devScoreBar" class="h-full bg-gradient-to-r from-red-500 via-amber-400 to-emerald-400 transition-all" style="width:0"></div></div>
     <div class="flex gap-2 mt-3"><button id="devStress" class="btn-fire flex-1">Stress-test the plan</button><button id="devReset" class="btn">Clear plan</button></div>
+    <div id="devSaveState" class="text-[10px] text-stone-500 mt-1.5" aria-live="polite">Loading saved plan…</div>
+    <button id="devHistorySave" class="btn w-full mt-2">Save plan to history</button>
+    <div class="mt-3"><div class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400">Saved plan history</div><div id="devHistory" class="mt-1 space-y-1.5"></div></div>
     <div class="text-[10px] text-stone-500 mt-1.5">Runs the four disasters on today's Ithaca and on your plan, then compares them.</div>
     <div id="devStressOut"></div>
   </div>
@@ -209,7 +213,7 @@ tailwind.config = { theme: { extend: {
 <div class="fixed bottom-4 left-4 z-10 w-[350px] max-w-[calc(100vw-2rem)] flex flex-col gap-2">
   <button id="simSave" class="btn-fire w-full shadow-2xl hidden">Save to history</button>
   <div class="glass rounded-2xl p-1.5 flex gap-1 shadow-2xl">
-    <button class="mode on" data-gview="3d">🏛 3D city</button><button class="mode" data-gview="graph">🕸 Graph view</button>
+    <button class="mode inline-flex items-center justify-center gap-2 on" data-gview="3d"><span data-icon="landmark"></span>3D city</button><button class="mode inline-flex items-center justify-center gap-2" data-gview="graph"><span data-icon="network"></span>Graph view</button>
   </div>
 </div>
 <!-- Graph view overlay -->
@@ -221,30 +225,31 @@ tailwind.config = { theme: { extend: {
       <div class="flex gap-1 text-[11px]"><button class="spd on" data-glayout="tiers">Tiers</button><button class="spd" data-glayout="map">Map</button></div>
     </div>
     <div class="relative flex-1 min-h-0 mt-2"><svg id="graphSvg" viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid meet" class="w-full h-full cursor-grab select-none" style="touch-action:none"></svg>
-      <div class="absolute flex items-center gap-1" style="top:2px;left:4px"><button id="gzIn" class="gz" title="Zoom in">+</button><button id="gzOut" class="gz" title="Zoom out">−</button><button id="gzFit" class="gz" title="Fit to view">⤢</button><span id="gzLevel" class="text-[10px] text-stone-500 ml-1">100%</span></div>
+      <div class="absolute flex items-center gap-1" style="top:2px;left:4px"><button id="gzIn" class="gz" title="Zoom in" aria-label="Zoom in"><span data-icon="plus"></span></button><button id="gzOut" class="gz" title="Zoom out" aria-label="Zoom out"><span data-icon="minus"></span></button><button id="gzFit" class="gz" title="Fit to view" aria-label="Fit to view"><span data-icon="maximize"></span></button><span id="gzLevel" class="text-[10px] text-stone-500 ml-1">100%</span></div>
       <div id="graphCard" class="hidden absolute top-1 right-1 w-[270px] glass rounded-xl p-3" style="background:rgba(20,15,10,.92)"></div></div>
     <div id="graphLegend" class="glegend flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-stone-400 mt-1"></div>
   </div>
 </div>
-<!-- Right: Athena, the Oracle, the cascade -->
-<div id="rightPanel" class="fixed top-4 right-4 bottom-4 z-10 w-[330px] flex-col gap-2 pointer-events-none hidden md:flex">
-  <div id="athena" class="glass rounded-2xl p-3 pointer-events-auto shadow-2xl shrink-0 max-h-[34vh] overflow-y-auto scrolly">
-    <div class="flex items-center gap-2"><span class="oicon" style="background:rgba(156,195,230,.15)">🦉</span><div><div class="font-display text-[12px] uppercase tracking-[.16em]" style="color:#9cc3e6">Athena's insight</div><div class="text-[10px] text-stone-500">Wisdom &amp; strategy · counsel you can act on</div></div></div>
+<!-- Right-side intelligence drawer -->
+<button id="rightPanelToggle" aria-controls="rightPanel" aria-expanded="false" aria-label="Open intelligence panel" class="fixed top-4 right-4 z-30 grid h-11 w-11 place-items-center rounded-xl border border-[#c9a24b]/45 bg-[#17100c]/90 text-[#e4aa56] shadow-2xl backdrop-blur transition hover:bg-[#3a2419]"><span data-icon="menu" data-size="20"></span></button>
+<aside id="rightPanel" aria-label="City intelligence panel" aria-hidden="true" class="fixed top-16 right-4 bottom-4 z-20 hidden w-[330px] max-w-[calc(100vw-2rem)] flex-col gap-2 overflow-y-auto scrolly pointer-events-none">
+  <section id="athenaPanel" class="glass pointer-events-auto shrink-0 max-h-[34vh] overflow-y-auto rounded-2xl p-3 shadow-2xl scrolly">
+    <div class="flex items-center gap-2"><span class="oicon" style="background:rgba(156,195,230,.15);color:#9cc3e6"><span data-icon="brain"></span></span><div><div class="font-display text-[12px] uppercase tracking-[.16em]" style="color:#9cc3e6">Athena preview</div><div class="text-[10px] text-stone-500">Wisdom &amp; strategy · counsel you can act on</div></div></div>
     <div id="athenaBody" class="text-[12px] leading-snug mt-2 text-stone-200"></div>
     <div id="athenaActs" class="flex flex-col gap-1.5 mt-2"></div>
-  </div>
-  <div id="oracle" class="glass rounded-2xl p-3 pointer-events-auto shadow-2xl shrink-0 max-h-[32vh] overflow-y-auto scrolly">
-    <div class="flex items-center gap-2"><span class="oicon" style="background:rgba(196,165,255,.15)">🔮</span><div><div class="font-display text-[12px] uppercase tracking-[.16em]" style="color:#c4a5ff">Oracle's insight</div><div class="text-[10px] text-stone-500">The Pythia of Delphi sees what is to come</div></div></div>
+  </section>
+  <section id="oraclePanel" class="glass pointer-events-auto shrink-0 max-h-[32vh] overflow-y-auto rounded-2xl p-3 shadow-2xl scrolly">
+    <div class="flex items-center gap-2"><span class="oicon" style="background:rgba(196,165,255,.15);color:#c4a5ff"><span data-icon="sparkles"></span></span><div><div class="font-display text-[12px] uppercase tracking-[.16em]" style="color:#c4a5ff">Oracle insight</div><div class="text-[10px] text-stone-500">The Pythia of Delphi sees what is to come</div></div></div>
     <div id="oracleBody" class="text-[12px] leading-snug mt-2"></div>
-  </div>
-<div id="feedPanel" class="glass rounded-2xl p-3 shadow-2xl pointer-events-auto flex-1 min-h-0 flex flex-col">
-  <div id="sysTitle" class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400 px-1 pb-1">City systems</div>
-  <div id="sysList" class="max-h-[18vh] overflow-y-auto scrolly"></div>
-  <div class="meander my-2 opacity-40"></div>
-  <div id="feedTitle" class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400 px-1 pb-1">How the damage spreads · click to view</div>
-  <div id="feed" class="flex-1 overflow-y-auto scrolly min-h-0"></div>
-</div>
-</div>
+  </section>
+  <section id="feedPanel" class="glass pointer-events-auto flex min-h-0 flex-1 flex-col rounded-2xl p-3 shadow-2xl">
+    <div id="sysTitle" class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400 px-1 pb-1">Ithaca's infrastructure</div>
+    <div id="sysList" class="max-h-[28vh] overflow-y-auto scrolly"></div>
+    <div class="meander my-2 opacity-40"></div>
+    <div id="feedTitle" class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400 px-1 pb-1">How the damage spreads · click to view</div>
+    <div id="feed" class="flex-1 overflow-y-auto scrolly min-h-0"></div>
+  </section>
+</aside>
 
 <!-- House info -->
 <div id="siteCard" class="fixed top-4 left-[380px] z-20 glass rounded-2xl p-4 w-[300px] shadow-2xl opacity-0 translate-y-3 pointer-events-none transition-all duration-300"></div>
@@ -254,7 +259,7 @@ tailwind.config = { theme: { extend: {
       <div class="font-display text-[10px] uppercase tracking-[.2em] text-stone-400">House <span id="iNum"></span> of <span id="iTot"></span></div>
       <div id="iName" class="font-display text-lg text-bronze-300 leading-tight mt-1"></div>
     </div>
-    <button id="iClose" class="text-stone-400 hover:text-white text-xl leading-none px-1">×</button>
+  <button id="iClose" aria-label="Close house details" class="text-stone-400 hover:text-white leading-none px-1"><span data-icon="x"></span></button>
   </div>
   <div class="meander my-2 opacity-40"></div>
   <dl class="grid grid-cols-2 gap-y-1 text-sm">
@@ -272,6 +277,41 @@ tailwind.config = { theme: { extend: {
 <script>
 (() => {
 // ================= utilities =================
+const ICON_PATHS={
+  arrowLeft:'<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  arrowUp:'<path d="M12 19V5M5 12l7-7 7 7"/>',
+  arrowDown:'<path d="M12 5v14M19 12l-7 7-7-7"/>',
+  maximize:'<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/>',
+  menu:'<path d="M4 5h16M4 12h16M4 19h16"/>',
+  x:'<path d="m18 6-12 12M6 6l12 12"/>',
+  warning:'<path d="m10.29 3.86-8.2 14.2A2 2 0 0 0 3.82 21h16.36a2 2 0 0 0 1.73-2.94l-8.2-14.2a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/>',
+  hammer:'<path d="m15 12-8.5 8.5a2.12 2.12 0 0 1-3-3L12 9"/><path d="m17.64 15 4.36-4.36-3.64-3.64L14 10.36"/><path d="m3.09 6.3 1.71 1.71a2.4 2.4 0 0 0 3.39 0l3.3-3.3-3.42-3.42-3.3 3.3"/>',
+  flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1 1-2 2-2 3.5a2.5 2.5 0 0 0 .5 2Z"/><path d="M14 12c.5-1.5 0-3-1-4.5C12 6 11 5 11 3c-2 2-4 4.5-4 8a5 5 0 0 0 10 0c0-1-.3-2-1-3-.5 1-1 2-2 4"/>',
+  rain:'<path d="M20 16.2A4.5 4.5 0 0 0 18.5 7H17A6 6 0 1 0 6 16.25"/><path d="M8 14v7M16 14v7M12 16v5"/>',
+  swords:'<path d="m14.5 17.5 3-3L22 20l-3 3zM8.5 6.5l-3 3L2 6l3-3zM2 2l7.5 7.5M14.5 6.5l3 3L22 6l-3-3zM22 2l-7.5 7.5M3 21l6-6"/>',
+  mountain:'<path d="m8 3 4 8 5-5 5 12H2L8 3Z"/>',
+  hospital:'<path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/><path d="M10 10h4M12 8v4M9 16h.01M15 16h.01"/>',
+  school:'<path d="m22 10-10-5-10 5 10 5 10-5ZM6 12v5c3.3 2.7 8.7 2.7 12 0v-5"/><path d="M22 10v6"/>',
+  shield:'<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/>',
+  landmark:'<path d="m3 10 9-7 9 7M4 10h16M5 10v9M9 10v9M15 10v9M19 10v9M3 21h18M2 19h20"/>',
+  network:'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M6 9v2a2 2 0 0 0 2 2h4m6-4v2a2 2 0 0 1-2 2h-4m0 2v-2"/>',
+  brain:'<path d="M12 18V5a3 3 0 0 0-5.8-1A4 4 0 0 0 4 11a4 4 0 0 0 1 7.9A3 3 0 0 0 12 18Z"/><path d="M12 5a3 3 0 0 1 5.8-1A4 4 0 0 1 20 11a4 4 0 0 1-1 7.9A3 3 0 0 1 12 18M8 7h.01M8 12h.01M16 7h.01M16 12h.01M12 13h.01"/>',
+  sparkles:'<path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z"/><path d="m19 14 1.2 2.8L23 18l-2.8 1.2L19 22l-1.2-2.8L15 18l2.8-1.2L19 14ZM5 2l1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2Z"/>',
+  crown:'<path d="m2 7 5 4 5-7 5 7 5-4-2 13H4L2 7Z"/><path d="M4 20h16"/>',
+  tower:'<path d="M12 2v20M8 22h8M9 7h6M7 12h10M5 17h14"/><path d="M8 2h8l-1 5H9L8 2Z"/>',
+  home:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1V10Z"/>',
+  wheat:'<path d="M12 22V8M12 12c-4 0-6-2-6-5 4 0 6 2 6 5ZM12 17c4 0 6-2 6-5-4 0-6 2-6 5ZM12 8c-3 0-4.5-1.5-4.5-4.5C10.5 3.5 12 5 12 8ZM12 8c3 0 4.5-1.5 4.5-4.5C13.5 3.5 12 5 12 8Z"/>',
+  ship:'<path d="M2 20 4 9h16l2 11H2Z"/><path d="M12 9V2l7 7M4 20a4 4 0 0 0 8 0 4 4 0 0 0 8 0"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6"/>',
+  heartPulse:'<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/><path d="M3 12h5l2-3 3 6 2-3h6"/>',
+  check:'<path d="m5 12 4 4L19 6"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  minus:'<path d="M5 12h14"/>',
+  circle:'<circle cx="12" cy="12" r="7"/>'
+};
+function lucideIcon(name,size=16){return`<svg class="ui-icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]||ICON_PATHS.info}</svg>`;}
+document.querySelectorAll('[data-icon]').forEach(el=>{el.innerHTML=lucideIcon(el.dataset.icon,Number(el.dataset.size)||16);});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
 const smooth=(e0,e1,x)=>{const t=clamp((x-e0)/(e1-e0),0,1);return t*t*(3-2*t);};
@@ -1521,7 +1561,7 @@ function saveRun(){
   UI.save.disabled=true;UI.save.textContent='Saving…';
   fetch('/api/simulator-history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lastRun)})
     .then(r=>{if(!r.ok)throw new Error();return r.json();})
-    .then((res)=>{UI.save.textContent='✔ Saved to history';ev(lastRun.durationSimMinutes,'Run saved to simulation history.','good',null);
+    .then((res)=>{UI.save.innerHTML=lucideIcon('check',14)+' Saved to history';ev(lastRun.durationSimMinutes,'Run saved to simulation history.','good',null);
       postToParent('saved',Object.assign({},lastRun,{runId:res.runId}));})
     .catch(()=>{UI.save.disabled=false;UI.save.textContent='Save to history';ev(lastRun.durationSimMinutes,'Could not reach the database — this run was not saved.','warn',null);
       postToParent('saveFailed',lastRun);});
@@ -1538,12 +1578,12 @@ function postLiveToParent(){
       kpis:sc.kpi.map((label,i)=>({label,value:sc.kpis().concat([sev()])[i]}))});
   }catch(e){}
 }
-const EV_STYLE={fire:['#ff7a45','▲'],bad:['#f87171','●'],warn:['#fbbf24','●'],info:['#e8c48a','◆'],crew:['#5ec8ff','◆'],people:['#fff1c7','◆'],hurt:['#ff8a8a','✚'],good:['#4ade80','✔']};
+const EV_STYLE={fire:['#ff7a45','flame'],bad:['#f87171','warning'],warn:['#fbbf24','info'],info:['#e8c48a','info'],crew:['#5ec8ff','hammer'],people:['#fff1c7','users'],hurt:['#ff8a8a','heartPulse'],good:['#4ade80','check']};
 function ev(t,text,kind,focus){
   t=Math.max(0,Math.floor(t));S.events.push({t,text,kind});if(S.silent)return;
   const [c,ic]=EV_STYLE[kind]||EV_STYLE.info;
   const el=document.createElement('button');el.className='ev';
-  el.innerHTML=`<span class="evt">${SCN[S.kind].fmt(t)}</span><span class="evi" style="color:${c}">${ic}</span><span class="evx">${text}</span>`;
+  el.innerHTML=`<span class="evt">${SCN[S.kind].fmt(t)}</span><span class="evi" style="color:${c}">${lucideIcon(ic,12)}</span><span class="evx">${text}</span>`;
   if(focus){const f={x:focus.x,y:focus.y||H(focus.x,focus.z),z:focus.z};el.onclick=()=>flyTo(f.x,f.y,f.z,100);}
   document.getElementById('feed').prepend(el);
 }
@@ -1605,9 +1645,9 @@ function updateHUD(){
 // =====================================================================
 // ============== CIVIC BUILDINGS (3D) & DEVELOPMENT PLANNER ===========
 // =====================================================================
-const SITE_STYLE={hospital:{col:'#f43f5e',label:'Hospital',plural:'Hospitals',icon:'✚',cost:15,unit:'beds'},
-  school:{col:'#38bdf8',label:'School',plural:'Schools',icon:'✎',cost:8,unit:'shelter places'},
-  base:{col:'#e0a458',label:'Military base',plural:'Military bases',icon:'⛨',cost:10,unit:'soldiers'}};
+const SITE_STYLE={hospital:{col:'#f43f5e',label:'Hospital',plural:'Hospitals',icon:'hospital',cost:15,unit:'beds'},
+  school:{col:'#38bdf8',label:'School',plural:'Schools',icon:'school',cost:8,unit:'shelter places'},
+  base:{col:'#e0a458',label:'Military base',plural:'Military bases',icon:'shield',cost:10,unit:'soldiers'}};
 const SITE_MESHES=[];
 const colGeo=new THREE.CylinderGeometry(1,.85,1,10);colGeo.translate(0,.5,0);
 const discGeo=new THREE.CylinderGeometry(1,1,1,14);discGeo.rotateX(Math.PI/2);
@@ -1650,7 +1690,7 @@ plotStakes.instanceMatrix.needsUpdate=true;
 
 // labels for civic buildings (shown when the camera is close)
 function addSiteLabel(st){const el=document.createElement('div');el.className='lbl absolute font-display tracking-wider px-1.5 py-0.5 rounded-md bg-black/55 border text-[10px] text-stone-100';
-  el.style.borderColor=SITE_STYLE[st.kind].col+'99';el.innerHTML=`<span style="color:${SITE_STYLE[st.kind].col}">${SITE_STYLE[st.kind].icon}</span> <span>${st.name}</span><span class="chip"></span>`;lblHost.appendChild(el);
+  el.style.borderColor=SITE_STYLE[st.kind].col+'99';el.innerHTML=`<span style="color:${SITE_STYLE[st.kind].col}">${lucideIcon(SITE_STYLE[st.kind].icon,12)}</span> <span>${st.name}</span><span class="chip"></span>`;lblHost.appendChild(el);
   const p={name:st.name,pos:[st.x,st.y+9,st.z],v:new THREE.Vector3(st.x,st.y+9,st.z),el,near:st.sys&&st.sys.devAdded?520:200,site:st};PLACES.push(p);st.label=p;if(st.sys)labelChip.set(st.sys,el.querySelector('.chip'));return p;}
 
 // click a civic building
@@ -1660,8 +1700,8 @@ function showSite(st){
   const o=st.sys,sty=SITE_STYLE[st.kind];
   const cap=st.kind==='hospital'?`${o.care} beds${S&&o.careLoad?` · ${o.careLoad} wounded in care`:''}`:st.kind==='school'?`${o.shelterCap} shelter places${S&&o.load?` · ${o.load} sheltering`:''}`:`${o.garrison} soldiers · fire & rescue crews`;
   const reach=st.kind==='base'?'Answers fires, raids and collapses nearby':`Serves ${Math.round(servedBy(o)).toLocaleString()} people within walking distance`;
-  siteCard.innerHTML=`<div class="flex items-start justify-between"><div><div class="text-[10px] uppercase tracking-[.2em]" style="color:${sty.col}">${sty.icon} ${sty.label}${o.devAdded?' · new in your plan':''}</div>
-    <div class="font-display text-lg text-bronze-300 leading-tight mt-1">${st.name}</div></div><button class="text-stone-400 hover:text-white text-xl leading-none px-1" onclick="this.closest('#siteCard').classList.add('opacity-0','pointer-events-none')">×</button></div>
+  siteCard.innerHTML=`<div class="flex items-start justify-between"><div><div class="text-[10px] uppercase tracking-[.2em]" style="color:${sty.col}">${lucideIcon(sty.icon,13)} ${sty.label}${o.devAdded?' · new in your plan':''}</div>
+    <div class="font-display text-lg text-bronze-300 leading-tight mt-1">${st.name}</div></div><button class="text-stone-400 hover:text-white px-1" aria-label="Close details" onclick="this.closest('#siteCard').classList.add('opacity-0','pointer-events-none')">${lucideIcon('x',16)}</button></div>
     <div class="meander my-2 opacity-40"></div><div class="text-sm text-stone-200">${cap}</div><div class="text-xs text-stone-400 mt-1">${reach}</div>
     <div class="text-xs mt-2">Status: <span style="color:${ST[o.status]}">${ST_LABEL[o.status]}</span> · ${quarter(Math.atan2(st.x,st.z))}</div>`;
   siteCard.classList.remove('opacity-0','translate-y-3','pointer-events-none');
@@ -1689,8 +1729,82 @@ function devMetrics(){
   m.score=Math.round(100*(.24*m.hosp+.14*m.school+.16*Math.min(1,m.bedsK/60)+.16*Math.min(1,m.placesPct/.9)+.15*m.resp+.15*Math.min(1,m.defense/1100)));
   return m;
 }
-const DEV={on:false,view:'normal',added:[],log:[],stress:null,base:null};
+const DEV={on:false,view:'normal',added:[],log:[],stress:null,history:[],base:null,loading:true,restoring:false,saveTimer:null,saveChain:Promise.resolve()};
 const spent=()=>DEV.added.reduce((a,o)=>a+SITE_STYLE[o.kind].cost,0);
+function setDevSaveState(text,kind='muted'){
+  const el=document.getElementById('devSaveState');if(!el)return;
+  el.textContent=text;el.className=`text-[10px] mt-1.5 ${kind==='good'?'text-emerald-400':kind==='bad'?'text-red-300':'text-stone-500'}`;
+}
+function developmentPlanPayload(){return{buildings:DEV.added.map(o=>({kind:o.kind,plotIndex:o.site.plot.idx,name:o.name})),stress:DEV.stress};}
+function persistDevelopmentPlan(){
+  const payload=developmentPlanPayload();
+  const save=DEV.saveChain.then(async()=>{
+    setDevSaveState('Saving changes…');
+    const response=await fetch('/api/development-plan',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await response.json();if(!response.ok)throw new Error(data.error||'Could not save the plan');
+    setDevSaveState(`Saved to database · ${new Date(data.plan.updatedAt).toLocaleTimeString()}`,'good');return data.plan;
+  });
+  DEV.saveChain=save.catch(()=>{});
+  return save;
+}
+function scheduleDevelopmentSave(){
+  if(DEV.restoring)return;
+  clearTimeout(DEV.saveTimer);setDevSaveState('Saving changes…');
+  DEV.saveTimer=setTimeout(()=>persistDevelopmentPlan().catch(error=>setDevSaveState(error instanceof Error?error.message:'Could not save changes','bad')),350);
+}
+async function saveDevelopmentHistory(){
+  const button=document.getElementById('devHistorySave');button.disabled=true;clearTimeout(DEV.saveTimer);
+  try{
+    await persistDevelopmentPlan();
+    const response=await fetch('/api/development-plan',{method:'POST'});const data=await response.json();
+    if(!response.ok)throw new Error(data.error||'Could not save the history snapshot');
+    DEV.history=[data.snapshot,...DEV.history.filter(item=>item.versionId!==data.snapshot.versionId)].slice(0,20);
+    setDevSaveState('Plan snapshot saved to history','good');renderDevelopmentHistory();
+  }catch(error){setDevSaveState(error instanceof Error?error.message:'Could not save to history','bad');}
+  finally{button.disabled=DEV.loading;}
+}
+function restoreDevelopmentHistory(snapshot){
+  DEV.restoring=true;
+  while(DEV.added.length)devRemove(DEV.added[DEV.added.length-1].kind);
+  for(const building of snapshot.buildings||[])devBuild(building.kind,building);
+  DEV.stress=Array.isArray(snapshot.stress)?snapshot.stress:null;
+  DEV.restoring=false;DEV.log=[{text:'Restored a saved development plan from history.',kind:'info'}];
+  renderDevFeed();renderStress();applyView();updateHUD();scheduleDevelopmentSave();
+}
+function renderDevelopmentHistory(){
+  const host=document.getElementById('devHistory');host.replaceChildren();
+  if(!DEV.history.length){const empty=document.createElement('p');empty.className='text-[10px] text-stone-500';empty.textContent='No saved versions yet.';host.appendChild(empty);return;}
+  DEV.history.slice(0,8).forEach(snapshot=>{
+    const row=document.createElement('div');row.className='flex items-center gap-2 rounded-lg bg-black/20 px-2.5 py-2';
+    const copy=document.createElement('div');copy.className='min-w-0 flex-1';
+    const count=document.createElement('div');count.className='text-[10px] text-stone-200';count.textContent=`${snapshot.buildings.length} project${snapshot.buildings.length===1?'':'s'} · ${snapshot.buildings.map(b=>SITE_STYLE[b.kind].label).join(', ')||'empty plan'}`;
+    const date=document.createElement('div');date.className='text-[9px] text-stone-500';date.textContent=new Date(snapshot.createdAt).toLocaleString();
+    const restore=document.createElement('button');restore.className='spd shrink-0';restore.textContent='Restore';restore.onclick=()=>restoreDevelopmentHistory(snapshot);
+    copy.append(count,date);row.append(copy,restore);host.appendChild(row);
+  });
+}
+function toggleRightPanel(force){
+  const panel=document.getElementById('rightPanel'),button=document.getElementById('rightPanelToggle');
+  const open=force??panel.classList.contains('hidden');panel.classList.toggle('hidden',!open);panel.classList.toggle('flex',open);
+  panel.setAttribute('aria-hidden',String(!open));button.setAttribute('aria-expanded',String(open));button.setAttribute('aria-label',open?'Close intelligence panel':'Open intelligence panel');button.innerHTML=lucideIcon(open?'x':'menu',20);
+}
+async function loadDevelopmentPlan(){
+  try{
+    const response=await fetch('/api/development-plan');const data=await response.json();
+    if(!response.ok)throw new Error(data.error||'Could not load the saved plan');
+    DEV.restoring=true;
+    for(const building of data.plan.buildings||[])devBuild(building.kind,building);
+    DEV.stress=Array.isArray(data.plan.stress)?data.plan.stress:null;
+    DEV.history=Array.isArray(data.plan.history)?data.plan.history:[];
+    DEV.log=[];if(DEV.added.length)DEV.log.unshift({text:`Restored ${DEV.added.length} saved development project${DEV.added.length===1?'':'s'} from the database.`,kind:'info'});
+    DEV.loading=false;DEV.restoring=false;
+    setDevSaveState(data.plan.updatedAt?`Saved plan loaded · ${new Date(data.plan.updatedAt).toLocaleString()}`:'No saved development changes yet');
+    updateHUD();renderDevFeed();renderStress();renderDevelopmentHistory();
+  }catch(error){
+    DEV.loading=false;DEV.restoring=false;
+    setDevSaveState(error instanceof Error?error.message:'Saved plan unavailable — changes may not persist','bad');updateHUD();renderDevelopmentHistory();
+  }
+}
 function bestPlot(kind){
   const free=PLOTS.filter(p=>!p.used);if(!free.length)return null;
   const d=nearestDist(kind);let best=null,bg=-1;
@@ -1705,14 +1819,16 @@ function bestPlot(kind){
 }
 const DEV_NAMES={hospital:q=>`New Asclepion, ${q} quarter`,school:q=>`New Gymnasium, ${q} quarter`,base:q=>`${q} Watch Garrison`};
 function devLog(text,kind){DEV.log.unshift({text,kind});DEV.dirty=true;DEV.oDirty=true;if(DEV.on)renderDevFeed();}
-function devBuild(kind){
+function devBuild(kind,restored=null){
+  if(DEV.loading&&!DEV.restoring)return;
   if(S)resetCity(true);
   const cost=SITE_STYLE[kind].cost;if(spent()+cost>TREASURY){devLog(`Not enough talents in the treasury for another ${SITE_STYLE[kind].label.toLowerCase()} (${cost} needed).`,'bad');flashTreasury();return;}
-  const choice=bestPlot(kind);if(!choice){devLog('Every surveyed plot in the city is already built on.','bad');return;}
+  const savedPlot=restored?PLOTS.find(p=>p.idx===restored.plotIndex&&!p.used):null;
+  const choice=restored?(savedPlot?{plot:savedPlot}:null):bestPlot(kind);if(!choice){if(!DEV.restoring)devLog('A saved building could not be placed on its surveyed plot.','bad');return;}
   const pl=choice.plot;const q=quarter(Math.atan2(pl.x,pl.z)).replace(' quarter','');
   const before=devMetrics();
-  const st={kind,name:DEV_NAMES[kind](q),x:pl.x,z:pl.z,a:pl.a,y:pl.y,plot:pl};
-  if(SITE_SYS.some(o=>o.name===st.name))st.name+=' II';
+  const st={kind,name:restored?.name||DEV_NAMES[kind](q),x:pl.x,z:pl.z,a:pl.a,y:pl.y,plot:pl};
+  if(!restored&&SITE_SYS.some(o=>o.name===st.name))st.name+=' II';
   pl.used=st;buildSiteMesh(st);st.group.scale.y=.02;st.rise=performance.now();
   const o=siteSys(st,true);makeBeacon(o);addSiteLabel(st);DEV.added.push(o);
   const after=devMetrics();
@@ -1720,7 +1836,8 @@ function devBuild(kind){
     :kind==='school'?`brings a school within reach of ${Math.round((after.school-before.school)*TOTAL_SOULS).toLocaleString()} more children and adds ${st.places} shelter places`
     :`brings fire & rescue crews within 3½ minutes of ${Math.round((after.resp-before.resp)*TOTAL_SOULS).toLocaleString()} more people and adds ${st.garrison} soldiers`;
   DEV.dirty=true;devLog(`Built <b>${st.name}</b> for ${cost} talents — ${what}.`,kind);
-  flyTo(st.x,st.y,st.z,70);applyView();updateHUD();FOCUS.dev={x:st.x,z:st.z,until:performance.now()+5000};
+  if(!DEV.restoring){scheduleDevelopmentSave();flyTo(st.x,st.y,st.z,70);FOCUS.dev={x:st.x,z:st.z,until:performance.now()+5000};}
+  applyView();updateHUD();
 }
 function devRemove(kind){
   if(S)resetCity(true);
@@ -1728,7 +1845,7 @@ function devRemove(kind){
   scene.remove(st.group);st.group.traverse(m=>{const k=SITE_MESHES.indexOf(m);if(k>=0)SITE_MESHES.splice(k,1);});
   st.plot.used=null;SYS.splice(SYS.indexOf(o),1);SITE_SYS.splice(SITE_SYS.indexOf(o),1);scene.remove(o.beacon);scene.remove(o.ring);
   st.label.el.remove();PLACES.splice(PLACES.indexOf(st.label),1);labelChip.delete(o);
-  DEV.dirty=true;devLog(`Plan revised: ${st.name} removed (${SITE_STYLE[kind].cost} talents returned).`,'info');applyView();updateHUD();
+  DEV.dirty=true;devLog(`Plan revised: ${st.name} removed (${SITE_STYLE[kind].cost} talents returned).`,'info');scheduleDevelopmentSave();applyView();updateHUD();
 }
 function flashTreasury(){const e=document.getElementById('devTreasury');e.classList.add('text-red-400');setTimeout(()=>e.classList.remove('text-red-400'),700);}
 // coverage views: tint every house by whether help is within reach
@@ -1760,7 +1877,7 @@ function runStress(){
     if(k<STRESS.length)setTimeout(step,30);
     else{DEV.stress=out;btn.disabled=false;btn.textContent='Stress-test the plan again';applyView();renderStress();
       const avgA=out.reduce((s,r)=>s+r.a.sev,0)/out.length,avgB=out.reduce((s,r)=>s+r.b.sev,0)/out.length;
-      devLog(`Stress test: average disaster severity ${Math.round(avgA)} → <b>${Math.round(avgB)}</b> with your plan.`,'good');updateHUD();}};
+      devLog(`Stress test: average disaster severity ${Math.round(avgA)} → <b>${Math.round(avgB)}</b> with your plan.`,'good');scheduleDevelopmentSave();updateHUD();}};
   setTimeout(step,30);
 }
 function renderStress(){
@@ -1774,8 +1891,8 @@ function renderStress(){
       <td class="text-center">${r.b.unsheltered}<br>${d(r.a.unsheltered,r.b.unsheltered)}</td></tr>`).join('')+`</tbody></table>`;
 }
 function renderDevFeed(){
-  document.getElementById('feed').innerHTML=DEV.log.length?DEV.log.map(l=>{const c=l.kind==='bad'?'#f87171':l.kind==='good'?'#4ade80':SITE_STYLE[l.kind]?SITE_STYLE[l.kind].col:'#e8c48a';const ic=SITE_STYLE[l.kind]?SITE_STYLE[l.kind].icon:'◆';
-    return`<div class="ev" style="animation:none"><span class="evt">plan</span><span class="evi" style="color:${c}">${ic}</span><span class="evx">${l.text}</span></div>`;}).join('')
+  document.getElementById('feed').innerHTML=DEV.log.length?DEV.log.map(l=>{const c=l.kind==='bad'?'#f87171':l.kind==='good'?'#4ade80':SITE_STYLE[l.kind]?SITE_STYLE[l.kind].col:'#e8c48a';const ic=SITE_STYLE[l.kind]?SITE_STYLE[l.kind].icon:l.kind==='bad'?'warning':l.kind==='good'?'check':'info';
+    return`<div class="ev" style="animation:none"><span class="evt">plan</span><span class="evi" style="color:${c}">${lucideIcon(ic,12)}</span><span class="evx">${l.text}</span></div>`;}).join('')
     :'<div class="evempty">Add hospitals, schools or garrisons on the left. Each one goes on the surveyed plot where it helps the most people, and this log explains what it changed.</div>';
 }
 let devCache=null;
@@ -1783,13 +1900,16 @@ function updateDev(){
   const m=devMetrics(),b=DEV.base;devCache=m;
   const sp=spent();document.getElementById('devTreasury').textContent=`${TREASURY-sp} of ${TREASURY} talents left`;document.getElementById('devTBar').style.width=(sp/TREASURY*100)+'%';
   ['hospital','school','base'].forEach(k=>{document.getElementById('dn_'+k).textContent=m.n[k];const add=m.n[k]-b.n[k];document.getElementById('da_'+k).textContent=add?`+${add} new`:'';
-    document.getElementById('dp_'+k).disabled=sp+SITE_STYLE[k].cost>TREASURY||!PLOTS.some(p=>!p.used);document.getElementById('dm_'+k).disabled=!add;});
+    document.getElementById('dp_'+k).disabled=DEV.loading||sp+SITE_STYLE[k].cost>TREASURY||!PLOTS.some(p=>!p.used);document.getElementById('dm_'+k).disabled=DEV.loading||!add;});
+  document.getElementById('devStress').disabled=DEV.loading||!DEV.added.length;
+  document.getElementById('devReset').disabled=DEV.loading||!DEV.added.length;
+  document.getElementById('devHistorySave').disabled=DEV.loading;
   const row=(id,val,base,fmt,lowGood)=>{const e=document.getElementById(id);const dv=val-base;const good=lowGood?dv<0:dv>0;
-    e.innerHTML=`<b>${fmt(val)}</b>${Math.abs(dv)>1e-6?` <span class="${good?'text-emerald-400':'text-red-400'}">${dv>0?'▲':'▼'} ${fmt(Math.abs(dv)).replace(/^\\+/,'')}</span>`:''}`;};
+    e.innerHTML=`<b>${fmt(val)}</b>${Math.abs(dv)>1e-6?` <span class="${good?'text-emerald-400':'text-red-400'}">${lucideIcon(dv>0?'arrowUp':'arrowDown',11)} ${fmt(Math.abs(dv)).replace(/^\\+/,'')}</span>`:''}`;};
   const pct=v=>Math.round(v*100)+'%';
   row('mt_hosp',m.hosp,b.hosp,pct);row('mt_school',m.school,b.school,pct);row('mt_beds',m.bedsK,b.bedsK,v=>v.toFixed(1));
   row('mt_places',m.placesPct,b.placesPct,pct);row('mt_resp',m.resp,b.resp,pct);row('mt_def',m.defense,b.defense,v=>Math.round(v).toLocaleString());
-  document.getElementById('devScore').textContent=m.score;const ds=m.score-b.score;document.getElementById('devScoreD').innerHTML=ds?`<span class="text-emerald-400">▲ ${ds} from today</span>`:'<span class="text-stone-500">today\'s Ithaca</span>';
+  document.getElementById('devScore').textContent=m.score;const ds=m.score-b.score;document.getElementById('devScoreD').innerHTML=ds?`<span class="text-emerald-400">${lucideIcon('arrowUp',11)} ${ds} from today</span>`:'<span class="text-stone-500">today\'s Ithaca</span>';
   document.getElementById('devScoreBar').style.width=m.score+'%';
   sysList.innerHTML=['hospital','school','base'].map(k=>{const sty=SITE_STYLE[k];const list=SITE_SYS.filter(o=>o.kind===k&&live(o));
     const cap=k==='hospital'?`${list.reduce((a,o)=>a+o.care0,0)} beds`:k==='school'?`${list.reduce((a,o)=>a+o.cap0,0).toLocaleString()} shelter places`:`${list.reduce((a,o)=>a+o.garrison0,0)} soldiers`;
@@ -1801,20 +1921,23 @@ function setMode(mode){
   document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
   document.getElementById('simPanel').classList.toggle('hidden',DEV.on);document.getElementById('devPanel').classList.toggle('hidden',!DEV.on);
   document.getElementById('feedTitle').textContent=DEV.on?'Development log':'How the damage spreads · click to view';
-  document.getElementById('sysTitle').textContent=DEV.on?'Ithaca\'s infrastructure':'City systems';
+  document.getElementById('sysTitle').textContent='Ithaca\'s infrastructure';
   DEV.dirty=true;
   if(DEV.on){if(S)resetCity(true);document.body.classList.remove('sim-on');renderDevFeed();renderStress();}
   else{applyView();resetCity(false);}
   applyView();updateHUD();if(typeof renderInsight==='function')renderInsight(true);if(!DEV.on&&typeof schedulePreview==='function')schedulePreview();
 }
+document.getElementById('rightPanelToggle').onclick=()=>toggleRightPanel();
+document.addEventListener('keydown',event=>{if(event.key==='Escape')toggleRightPanel(false);});
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
 ['hospital','school','base'].forEach(k=>{document.getElementById('dp_'+k).onclick=()=>devBuild(k);document.getElementById('dm_'+k).onclick=()=>devRemove(k);});
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{DEV.view=b.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('on',x===b));applyView();});
 document.getElementById('devStress').onclick=runStress;
-document.getElementById('devReset').onclick=()=>{while(DEV.added.length)devRemove(DEV.added[DEV.added.length-1].kind);DEV.stress=null;renderStress();DEV.log=[];devLog('Plan cleared — back to today\'s Ithaca.','info');updateHUD();};
+document.getElementById('devHistorySave').onclick=saveDevelopmentHistory;
+document.getElementById('devReset').onclick=()=>{while(DEV.added.length)devRemove(DEV.added[DEV.added.length-1].kind);DEV.stress=null;renderStress();DEV.log=[];devLog('Plan cleared — back to today\'s Ithaca.','info');scheduleDevelopmentSave();updateHUD();};
 
 SITES.forEach(addSiteLabel);
-DEV.base=devMetrics();DEV.dirty=true;
+DEV.base=devMetrics();DEV.dirty=true;loadDevelopmentPlan();
 
 
 // =====================================================================
@@ -1912,8 +2035,8 @@ function athenaDev(){
 }
 
 // ---------- the Oracle ----------
-const ORACLE_DEV=[{label:'⚡ A strong earthquake beneath the city',run:['quake','city','strong'],key:'untreated',keyL:'untreated wounded'},
-  {label:'⚔ A Taphian fleet against watchful Ithaca',run:['attack','watchful','fleet'],key:'injured',keyL:'wounded'}];
+const ORACLE_DEV=[{icon:'mountain',label:'A strong earthquake beneath the city',run:['quake','city','strong'],key:'untreated',keyL:'untreated wounded'},
+  {icon:'swords',label:'A Taphian fleet against watchful Ithaca',run:['attack','watchful','fleet'],key:'injured',keyL:'wounded'}];
 
 
 const fmtT=(kind,t)=>SCN[kind].fmt(t);
@@ -1947,7 +2070,7 @@ function oracleDev(){
   ORACLE.busy=false;
   return`<div class="text-stone-300">If disaster struck your plan tomorrow:</div><div class="mt-1.5 space-y-1.5">`+ORACLE_DEV.map((r,i)=>{const a=DEV.oBase[i],b=DEV.oNow[i];
     const d=(x,y,l)=>`<span class="whitespace-nowrap">${l} ${x}→<b class="${y<x?'text-emerald-400':y>x?'text-red-400':'text-stone-100'}">${y}</b></span>`;
-    return`<div class="text-[11px]"><div class="text-stone-100">${r.label}</div><div class="text-stone-400">${d(a.sev,b.sev,'severity')} · ${d(a[r.key],b[r.key],r.keyL)}</div></div>`;}).join('')+`</div>`;
+    return`<div class="text-[11px]"><div class="text-stone-100 inline-flex items-center gap-1.5">${lucideIcon(r.icon,13)}${r.label}</div><div class="text-stone-400">${d(a.sev,b.sev,'severity')} · ${d(a[r.key],b[r.key],r.keyL)}</div></div>`;}).join('')+`</div>`;
 }
 // ---------- render ----------
 let athenaKey='';
@@ -1974,9 +2097,9 @@ schedulePreview();
 const GRAPH={on:false,layout:'tiers',dirty:true,nodes:[],edges:[],els:new Map(),hover:null,sel:null,t:0};
 const REL={command:{label:'Command & orders',col:'#b28dff'},signal:{label:'Beacon signals',col:'#ffcf6b'},rescue:{label:'Fire & rescue crews',col:'#5ec8ff'},
   casualty:{label:'Casualties to care',col:'#ff6b6b'},shelter:{label:'Overflow shelter',col:'#fff1c7'},supply:{label:'Grain & supply',col:'#ffd166'}};
-const NODE_STYLE={palace:['♛','#e8c48a','Palace'],tower:['✹','#ffcf6b','Beacon'],base:['⛨','#e0a458','Military base'],school:['✎','#38bdf8','School'],hospital:['✚','#f43f5e','Hospital'],
-  shelter:['⌂','#d6c7a6','Sanctuary'],granary:['≋','#ffd166','Granary'],harbor:['⚓','#5ec8ff','Harbor']};
-const gsym=s=>s===S_AGO?['◎','#d6c7a6','Agora']:s===S_EUM?['♣','#9fbf6a','Farm refuge']:NODE_STYLE[s.kind]||['•','#ccc',s.kind];
+const NODE_STYLE={palace:['crown','#e8c48a','Palace'],tower:['tower','#ffcf6b','Beacon'],base:['shield','#e0a458','Military base'],school:['school','#38bdf8','School'],hospital:['hospital','#f43f5e','Hospital'],
+  shelter:['home','#d6c7a6','Sanctuary'],granary:['wheat','#ffd166','Granary'],harbor:['ship','#5ec8ff','Harbor']};
+const gsym=s=>s===S_AGO?['landmark','#d6c7a6','Agora']:s===S_EUM?['home','#9fbf6a','Farm refuge']:NODE_STYLE[s.kind]||['info','#ccc',s.kind];
 function graphNodes(){return SYS.filter(s=>live(s));}
 function nearestN(list,o,k){return list.filter(x=>x!==o).map(x=>[x,Math.hypot(x.x-o.x,x.z-o.z)]).sort((a,b)=>a[1]-b[1]).slice(0,k).map(a=>a[0]);}
 function buildGraphEdges(){
@@ -2025,7 +2148,7 @@ function renderGraph(){
     const major=r>=11||n.devAdded;
     return`<g class="gnode${n.devAdded?' gnew':''}" data-id="${n.id}" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})"><g class="gs">
       <circle r="${r+4}" class="gring" stroke="${ST.ok}"/><circle r="${r}" fill="#0f0c09" stroke="${col}" stroke-width="1.5"/>
-      <text class="gic" fill="${col}" font-size="${r*1.15}" dy="${r*.4}">${ic}</text>
+      <svg class="gic" x="-${r*.52}" y="-${r*.52}" width="${r*1.04}" height="${r*1.04}" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[ic]||ICON_PATHS.info}</svg>
       <text class="glabel${major?'':' minor'}" y="${r+13}">${short.length>18?short.slice(0,17)+'…':short}</text></g></g>`;}).join('')+'</g>';
   svg.innerHTML=h;GRAPH.els.clear();if(GRAPH.layout!==GRAPH.vbLayout){GRAPH.vbLayout=GRAPH.layout;fitGraph();}else applyVB();
   svg.querySelectorAll('.gnode').forEach(g=>{const n=nodes.find(x=>x.id===g.dataset.id);GRAPH.els.set(n,g);
@@ -2058,7 +2181,7 @@ function updateGraph(force){
   const act=[];arcs.forEach((a,k)=>{if(a.fade||!a.a||!a.b)return;const [x,y]=arcEnds(a);if(!x||!y||x===y)return;const p=GRAPH.pos.get(x),q=GRAPH.pos.get(y);if(!p||!q)return;act.push(`<path d="M${p.x.toFixed(1)},${p.y.toFixed(1)} L${q.x.toFixed(1)},${q.y.toFixed(1)}" class="gact" stroke="${a.color||'#ff4d1f'}" marker-end="url(#ga_act)"/>`);});
   const key=act.length+':'+arcs.size;if(force||key!==GRAPH.actKey){GRAPH.actKey=key;document.getElementById('gActive').innerHTML=act.join('');}
   const affected=GRAPH.nodes.filter(n=>n.status!=='ok').length;
-  document.getElementById('graphLive').innerHTML=S?`<span style="color:#ff7a45">●</span> ${SCN[S.kind].fmt(Math.min(S.tick,SCN[S.kind].end))} · ${affected} affected`:DEV.on&&DEV.added.length?`<span style="color:#e0a458">●</span> ${DEV.added.length} new in plan`:'';
+  document.getElementById('graphLive').innerHTML=S?`<span style="color:#ff7a45">${lucideIcon('circle',10)}</span> ${SCN[S.kind].fmt(Math.min(S.tick,SCN[S.kind].end))} · ${affected} affected`:DEV.on&&DEV.added.length?`<span style="color:#e0a458">${lucideIcon('circle',10)}</span> ${DEV.added.length} new in plan`:'';
 }
 // ---- zoom & pan ----
 const GV={x:0,y:0,w:1000,h:640};

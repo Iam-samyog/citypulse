@@ -190,7 +190,7 @@ export function ChatbotWidget({ agent = "athena", getContext, quickPrompts }: Ch
             <Avatar agent={agent} size="lg" />
             <div className="relative mb-2 max-w-[80%] rounded-2xl rounded-bl-sm border border-[#6b0f1a]/50 bg-[#fff4d6]/90 p-4 font-heading text-base leading-7 text-[#6b0f1a]">
               <span aria-hidden className="absolute -left-2 bottom-3 h-4 w-4 rotate-45 border-b border-l border-[#6b0f1a]/50 bg-[#fff4d6]" />
-              Busy right now—processing your request shortly...
+              {error}
             </div>
           </div>
         )}

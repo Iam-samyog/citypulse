@@ -39,4 +39,5 @@ export const collections = {
   simulationEvents: "simulation_events",
   aiAnalysis: "ai_analysis",
   simulatorHistory: "simulator_history",
+  developmentPlans: "development_plans",
 } as const;

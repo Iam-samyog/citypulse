@@ -1,80 +1,71 @@
 # Demo Script — rehearse this exact sequence before judging
 
-Target: ~4-5 minutes. One continuous story, no dead air while waiting on
-API calls — have a backup recorded clip in case wifi/API latency bites.
+Target: 4–5 minutes. The story moves from citywide health, to live incidents,
+to Athena's evidence, then to the 3D city and simulator.
 
 ## 0. Setup (before judges arrive)
 
-- `npm run seed` fresh, so the city starts in a clean "all operational" state.
-- Confirm `GEMINI_API_KEY` / `GROK_API_KEY` work with a dry-run.
-- Open `/city` in the browser, full screen, judges can't see your terminal.
+- Run `npm run seed` once to load the 38 assets and 69 dependency links.
+- Run `npm run seed:demo` to load the 180-day simulated record, repair events,
+  saved simulator runs, and three live demo incidents. Re-running it replaces
+  only its own tagged records.
+- Sign in as `operator` and open `/dashboard` before the presentation.
+- Confirm `GEMINI_API_KEY` works by asking Athena one short question.
+- Say clearly that city, incident, population, and history figures are simulated.
 
-## 1. Opening — Enter Ithaca (30s)
+## 1. Opening — City at a glance (30s)
 
-- Land on `/` ("Oracle of Ithaca: The Odyssey of a City"), click "Enter Ithaca."
-- On `/city`: orbit the camera, point out the two districts and a few
-  component types (substation, water pump, hospital). One sentence: "every
-  box here is a real piece of infrastructure, connected to the ones it
-  depends on."
+- Start on the Overview dashboard. Point out the 38 monitored assets, four
+  districts, current operational health, active incidents, and backup coverage.
+- Explain that the dependency graph is deterministic and the city dataset is
+  fictional; the dashboard makes consequences visible, it does not control
+  real infrastructure.
 
-## 2. The Disruption — Poseidon's Wrath (30s)
+## 2. The disruption — Active incidents (40s)
 
-- Click the electrical substation `TX-104`.
-- Click "Trigger Failure."
-- Say what you're about to do before the request resolves, so the pause
-  reads as intentional: "I'm failing this substation — watch what happens
-  downstream."
+- Open Incidents and show the three seeded cases: one recovering and two active.
+- Pick the waterworks rupture or lighthouse communications outage and name the
+  origin asset and downstream impact shown in the record.
+- Explain that the other incidents are included so recovery and overlapping
+  failures can be demonstrated without waiting for a new event.
 
-## 3. The Cascade — The Labyrinth (60s)
+## 3. The cascade — The 3D city (45s)
 
-- Nodes recolor: water pump → amber/red, water distribution → affected,
-  hospital flickers to at-risk (backup holding), residential blocks drop.
-- Point at the `ImpactZone` highlight.
-- Read the `IncidentPanel` impact numbers out loud: downstream count,
-  districts, population %, critical facilities, estimated recovery time.
-  Explicitly say: "these are simulated numbers from our city model, not
-  real municipal data" — judges respect that disclosure.
+- Open the live 3D city and select the failed origin asset.
+- Point out how dependency links, impacted districts, and asset statuses
+  correspond to the incident record. The simulation engine determines the
+  cascade; Gemini only explains it.
 
-## 4. The Intelligence — Athena's Strategy (60-90s)
+## 4. The intelligence — Athena and the Oracle (90s)
 
-- Navigate to `/incidents`, select the active incident.
-- Click "Ask Athena" — while it loads, narrate: "Gemini is reading the
-  same structured data you just saw, not guessing."
-- Read Gemini's explanation.
-- Type a live follow-up question in Athena's box (e.g. "which neighborhood
-  is most at risk?") to prove it's not canned.
-- Click "Review Plan" for Grok — point out it's a **different model**
-  independently critiquing the same incident, and that it may disagree
-  with or add to Gemini's take. This contrast is the differentiator — slow
-  down here.
+- Open Advisors and use Athena's instant questions: “Give me a status
+  briefing” and “What keeps causing failures?” Show the charts and 180-day
+  trends: causes, repeat offenders, and peak failure hours.
+- Ask Athena a freeform follow-up such as “Which district needs help first?”
+  The answer should distinguish current incidents from simulated history.
+- Open the Oracle and show its risk outlook. Explain that it is an independent
+  resilience view, also grounded in the live city and simulated record.
 
-## 5. The Return — Restoration (60s)
+## 5. The return — Recovery and history (45s)
 
-- In the Recovery panel, advance `TX-104` through repair stages to
-  "restored" (verified).
-- Flip back to `/city` — nodes should recolor back toward
-  operational/restored as the cascade reverses.
-- Close with the line from the pitch: "Odysseus spent years finding his
-  way back to Ithaca. Our mission is to help a city find its way home when
-  its systems fall apart."
+- Open Simulator and point out the saved runs across all four scenarios.
+- Return to Overview and close with: “The city model shows how failures
+  cascade, and how a coordinated recovery can bring Ithaca back online.”
 
 ## If something breaks live
 
-- API timeout on Gemini/Grok → say "the oracle is taking its time" and
-  move on, come back to it, or show a pre-recorded fallback.
-- MongoDB connection drop → have a local JSON fallback build ready
-  (lower priority, only build this if time allows after the MVP works).
+- Gemini timeout → use Athena's instant insight questions, which are computed
+  from the loaded city and history data without an API call.
+- MongoDB connection drop → `/api/infrastructure` serves the fixture city;
+  seeded incident history and simulator runs require MongoDB.
 
-## Questions judges are likely to ask — have answers ready
+## Questions judges are likely to ask
 
-- "Is this real infrastructure data?" → No, simulated city, disclosed in
-  the UI itself.
-- "Why two AI models instead of one?" → Independent review catches blind
-  spots a single model's bias might miss — same reason human incident
-  response uses a second reviewer.
-- "What decides the actual failure state, the AI or the simulation?" → The
-  deterministic engine (`lib/simulation/`) always decides state; AI is
-  advisory only, never authoritative.
-- "How would this scale to a real city?" → See "Future Scope" in the
-  original pitch — real datasets, GIS, live telemetry, with proper
-  engineering validation and human oversight.
+- “Is this real infrastructure data?” → No. Ithaca and its operating record
+  are simulated, as disclosed in the UI.
+- “Why two advisors?” → Athena explains current operations; the Oracle
+  independently stress-tests resilience and future risk. Both are advisory.
+- “What decides the actual failure state, the AI or the simulation?” → The
+  deterministic engine (`lib/simulation/`) decides state; AI is advisory only.
+- “How would this scale to a real city?” → With validated real datasets, GIS,
+  and live telemetry, plus engineering review and human oversight.
