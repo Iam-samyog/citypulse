@@ -2,8 +2,98 @@ import type { InfrastructureComponent } from "@/types/infrastructure";
 import type { Incident } from "@/types/incident";
 import type { RepairOperation } from "@/types/recovery";
 
-const GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.7-flash"] as const;
+const GEMINI_MODELS = ["gemini-3.6-flash", "gemini-3.8-flash"] as const;
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+
+export class GeminiError extends Error {
+  constructor(message: string, public status = 502) {
+    super(message);
+    this.name = "GeminiError";
+  }
+}
+
+export async function generate({
+  system,
+  messages,
+}: {
+  system: string;
+  messages: ChatMessage[];
+}): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new GeminiError(
+      "Gemini is not connected. Add GEMINI_API_KEY to .env.local and restart the server.",
+      503
+    );
+  }
+
+  const configuredModel = process.env.GEMINI_MODEL;
+  const models = configuredModel
+    ? [configuredModel, ...GEMINI_MODELS.filter((model) => model !== configuredModel)]
+    : GEMINI_MODELS;
+  let lastError = "Gemini did not return a response.";
+  for (const model of models) {
+    let response: Response;
+    try {
+      response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: messages.map((message) => ({
+            role: message.role === "assistant" ? "model" : "user",
+            parts: [{ text: message.content }],
+          })),
+          generationConfig: { temperature: 0.6, maxOutputTokens: 700 },
+        }),
+        signal: AbortSignal.timeout(60_000),
+      });
+    } catch (error) {
+      throw new GeminiError(
+        error instanceof Error && error.name === "TimeoutError"
+          ? "Gemini took too long to respond. Please try again."
+          : "Could not connect to Gemini. Check your network and try again.",
+        502
+      );
+    }
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      lastError = `${response.status} ${errorBody}`;
+      if (response.status === 401 || response.status === 403) {
+        throw new GeminiError("Gemini rejected the API key. Check GEMINI_API_KEY in .env.local.", 503);
+      }
+      if (response.status === 429) {
+        throw new GeminiError("Gemini is receiving too many requests. Please try again shortly.", 429);
+      }
+      if (response.status !== 503) {
+        if (response.status === 404) {
+          throw new GeminiError(
+            `Gemini model "${model}" was not found. Use an available model in GEMINI_MODEL.`,
+            503
+          );
+        }
+        break;
+      }
+      continue;
+    }
+
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts
+      ?.map((part: { text?: string }) => part.text ?? "")
+      .join("")
+      .trim();
+    if (!text) throw new GeminiError("Gemini returned an empty response. Please rephrase your question.");
+    return text;
+  }
+
+  throw new GeminiError(`Gemini is temporarily unavailable (${lastError}). Please try again.`, 503);
+}
 
 export interface IncidentExplanationInput {
   incident: Incident;
@@ -45,7 +135,7 @@ async function generateGeminiResponse(prompt: string, temperature: number): Prom
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { temperature, maxOutputTokens: 700 },
         }),
-        signal: AbortSignal.timeout(12_000),
+        signal: AbortSignal.timeout(60_000),
       });
 
       if (response.ok) {

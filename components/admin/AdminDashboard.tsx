@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Torch } from "@/components/dashboard/Torch";
 import { CityDemographics } from "@/components/dashboard/CityDemographics";
+import { ChatbotWidget } from "@/components/ai/ChatbotWidget";
 import { districts } from "@/lib/seed/infrastructure";
 import type { Incident } from "@/types/incident";
 import type { InfrastructureComponent, InfrastructureDependency } from "@/types/infrastructure";
@@ -271,9 +272,9 @@ export function AdminDashboard() {
 
         {active === "Incidents" && <Card title="Incidents" subtitle={`${scopedIncidents.length} recorded · ${activeIncidents.length} active`}><IncidentList incidents={scopedIncidents} /></Card>}
 
-        {active === "AI Assistants" && <section className="mt-5 grid gap-5 md:grid-cols-2">
-          <Card title="Athena" subtitle="Incident intelligence"><p className="text-xs leading-6 text-[#d8ccb0]/70">Analyses live failures and recommends response steps, grounded in simulation telemetry. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents to review right now."}</p><Link href="/city" className="mt-4 inline-block rounded-xl bg-[#4aa9bd] px-4 py-2.5 text-xs font-semibold text-white">Consult Athena in 3D city ↗</Link></Card>
-          <Card title="Oracle" subtitle="Strategic foresight"><p className="text-xs leading-6 text-[#d8ccb0]/70">Reviews resilience and backup endurance to forecast cascading risk. Current backup coverage is {coverage}%.</p><Link href="/city" className="mt-4 inline-block rounded-xl bg-[#947ac2] px-4 py-2.5 text-xs font-semibold text-white">Consult Oracle in 3D city ↗</Link></Card>
+        {active === "AI Assistants" && <section className="mt-5 grid gap-5 md:grid-cols-[1.35fr_.65fr]">
+          <ChatbotWidget embedded components={allComponents} incidents={scopedIncidents} />
+          <Card title="Oracle" subtitle="Strategic foresight"><p className="text-xs leading-6 text-[#d8ccb0]/70">Reviews resilience and backup endurance to forecast cascading risk. Current backup coverage is {coverage}%. {activeIncidents.length ? `${activeIncidents.length} active incident(s) are ready for review.` : "No active incidents are ready for review."}</p><Link href="/city" className="mt-4 inline-block rounded-xl bg-[#947ac2] px-4 py-2.5 text-xs font-semibold text-white">Consult Oracle in 3D city ↗</Link></Card>
         </section>}
 
       </div>
