@@ -10,6 +10,7 @@ import { SimulatedIncidentGenerator } from "@/components/dashboard/SimulatedInci
 import { ChatbotWidget } from "@/components/ai/ChatbotWidget";
 import { buildAthenaPrompts, buildOraclePrompts, type QuickData } from "@/lib/ai/quickInsights";
 import { buildHistory, historyFromIncidents, summarizeHistory, HISTORY_DAYS } from "@/lib/data/history";
+import { createAnnouncement } from "@/lib/notifications/announcement";
 import { districts } from "@/lib/seed/infrastructure";
 import type { Incident } from "@/types/incident";
 import type { InfrastructureComponent, InfrastructureDependency } from "@/types/infrastructure";
@@ -25,6 +26,18 @@ const ART: Record<string, { src: string; pos: string; full?: boolean }> = {
   Incidents: { src: "/art/battle-crowd.jpg", pos: "50% 50%" },
   "Advisors": { src: "/art/athena-odysseus.jpg", pos: "50% 62%" },
   Simulator: { src: "/art/odysseus-sea.jpg", pos: "50% 40%" },
+};
+
+const DEMO_ALERT_INCIDENT = {
+  incidentId: "demo-alert-water-main",
+  type: "water main break",
+  severity: "moderate",
+  status: "active",
+  componentId: "WA-01",
+  componentName: "Poseidon Waterworks",
+  district: "Harbor of Phorcys",
+  affectedDistricts: ["Harbor of Phorcys"],
+  downstreamAffectedCount: 3,
 };
 
 interface SimKpi { label: string; value: string | number }
@@ -68,6 +81,7 @@ export function AdminDashboard() {
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState("");
   const [sendingAlert, setSendingAlert] = useState(false);
+  const [demoAlertPreview, setDemoAlertPreview] = useState("");
   const [prefs, setPrefs] = useState({ autoRefresh: true, compact: false, alerts: true });
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -297,6 +311,24 @@ export function AdminDashboard() {
   }
   const printReport = () => { setMenu(false); setTimeout(() => window.print(), 50); };
 
+  const previewDemoAlert = () => {
+    const announcement = createAnnouncement({
+      source: "CITYPULSE",
+      scope: "citywide",
+      city: "Ithaca",
+      generatedAt: new Date().toISOString(),
+      summary: {
+        totalPopulation: districts.reduce((total, item) => total + item.population, 0),
+        totalInfrastructureAssets: components.length,
+        offlineAssets: components.filter((component) => component.status === "offline").length,
+        degradedAssets: components.filter((component) => component.status === "degraded").length,
+        activeIncidentCount: 1,
+      },
+      incidents: [{ ...DEMO_ALERT_INCIDENT, startedAt: new Date().toISOString() }],
+    });
+    setDemoAlertPreview(`DEMO PREVIEW — No real alert has been sent. ${announcement}`);
+  };
+
   // Send a citywide emergency alert, regardless of the currently selected district.
   const handleSendAlert = async () => {
     if (sendingAlert) return;
@@ -306,7 +338,7 @@ export function AdminDashboard() {
     );
 
     if (citywideActiveIncidents.length === 0) {
-      setToast("No active incidents to broadcast.");
+      previewDemoAlert();
       return;
     }
 
@@ -545,6 +577,16 @@ export function AdminDashboard() {
             setToast(`${created.length} simulated historical incidents added`);
           }} />
             <Card title="Incidents" subtitle={`${scopedIncidents.length} recorded · ${activeIncidents.length} open · click one for its overview`}>
+              <div className="mb-4 rounded-2xl border border-dashed border-[#e4aa56]/40 bg-[#e4aa56]/[.06] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2"><p className="text-xs font-semibold text-white">Always-available demo incident</p><span className="rounded-full bg-[#e4aa56]/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[#e8c783]">Simulated</span></div>
+                    <p className="mt-1 text-[11px] text-[#d8ccb0]/70">Water main break · WA-01 Poseidon Waterworks · Harbor of Phorcys · Moderate · 3 downstream assets</p>
+                    <p className="mt-1 text-[10px] text-[#d8ccb0]/50">Use it to preview the announcement when there are no live incidents. Preview mode never sends messages.</p>
+                  </div>
+                  <button type="button" onClick={previewDemoAlert} className="scroll-btn shrink-0 text-xs">Preview alert</button>
+                </div>
+              </div>
               <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
                 {(["all", "open", "resolved"] as const).map((v) => <button key={v} onClick={() => { setIncStatus(v); setIncLimit(20); }} className={chip(incStatus === v)}>{v}</button>)}
                 <span className="mx-1 h-4 w-px bg-white/15" />
@@ -703,6 +745,13 @@ export function AdminDashboard() {
         })()}
 
       </div>
+      {demoAlertPreview && <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 print:hidden" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDemoAlertPreview(""); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="demo-alert-title" className="w-full max-w-2xl rounded-2xl border border-[#e4aa56]/40 bg-[#1c0e0b] p-6 text-white shadow-2xl">
+          <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#e4aa56]">Simulated incident · no message sent</p><h2 id="demo-alert-title" className="font-heading mt-2 text-2xl">Demo alert preview</h2></div><button type="button" onClick={() => setDemoAlertPreview("")} aria-label="Close preview" className="rounded-lg px-3 py-1 text-lg text-white/60 hover:bg-white/10 hover:text-white">×</button></div>
+          <p className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm leading-7 text-[#efe5cc]/90">{demoAlertPreview}</p>
+          <div className="mt-5 flex justify-end"><button type="button" onClick={() => setDemoAlertPreview("")} className="scroll-btn text-sm">Close preview</button></div>
+        </section>
+      </div>}
       {toast && <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl bg-[#4a1f14] px-5 py-3 text-xs text-white shadow-xl print:hidden">{toast}</div>}
     </main>
   );

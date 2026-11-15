@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "oracle-video-studio",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "video", "run", "start"],
+      "port": 3005
     }
   ]
 }
