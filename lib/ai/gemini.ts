@@ -17,9 +17,11 @@ export class GeminiError extends Error {
 export async function generate({
   system,
   messages,
+  temperature = 0.6,
 }: {
   system: string;
   messages: ChatMessage[];
+  temperature?: number;
 }): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -49,7 +51,7 @@ export async function generate({
             role: message.role === "assistant" ? "model" : "user",
             parts: [{ text: message.content }],
           })),
-          generationConfig: { temperature: 0.6, maxOutputTokens: 700 },
+          generationConfig: { temperature, maxOutputTokens: 900 },
         }),
         signal: AbortSignal.timeout(60_000),
       });
@@ -63,27 +65,25 @@ export async function generate({
     }
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      lastError = `${response.status} ${errorBody}`;
+      lastError = `${response.status}`;
       if (response.status === 401 || response.status === 403) {
         throw new GeminiError("Gemini rejected the API key. Check GEMINI_API_KEY in .env.local.", 503);
       }
       if (response.status === 429) {
         throw new GeminiError("Gemini is receiving too many requests. Please try again shortly.", 429);
       }
-      if (response.status !== 503) {
-        if (response.status === 404) {
-          throw new GeminiError(
-            `Gemini model "${model}" was not found. Use an available model in GEMINI_MODEL.`,
-            503
-          );
-        }
+      if (response.status !== 503 && response.status !== 404) {
         break;
       }
       continue;
     }
 
-    const data = await response.json();
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      throw new GeminiError("Gemini returned an unreadable response. Please try again.");
+    }
     const text = data?.candidates?.[0]?.content?.parts
       ?.map((part: { text?: string }) => part.text ?? "")
       .join("")
@@ -122,35 +122,12 @@ export async function consultOracle(input: OracleConsultationInput): Promise<AIR
 }
 
 async function generateGeminiResponse(prompt: string, temperature: number): Promise<AIResponseText> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-
-  let lastError = "Gemini did not return a response";
-  for (const model of GEMINI_MODELS) {
-    try {
-      const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature, maxOutputTokens: 700 },
-        }),
-        signal: AbortSignal.timeout(60_000),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-        return parseAIResponse(text);
-      }
-
-      lastError = `${response.status} ${await response.text()}`;
-      if (response.status !== 429 && response.status !== 503) break;
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : "request timed out";
-    }
-  }
-  throw new Error(`Gemini API error: ${lastError}`);
+  const text = await generate({
+    system: "You are a CITYPULSE incident response analyst. Use only the evidence in the user message. Follow its requested response format.",
+    messages: [{ role: "user", content: prompt }],
+    temperature,
+  });
+  return parseAIResponse(text);
 }
 
 function buildAthenaPrompt(input: IncidentExplanationInput): string {

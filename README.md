@@ -28,11 +28,18 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+Sign in with the demo account: **operator** / **Ithaca2026!**. Set
+`DEMO_USERNAME`, `DEMO_PASSWORD`, and a long random `DEMO_SESSION_SECRET` to
+change it. Production deployments must configure these values. The demo city
+fixture contains 38 simulated infrastructure assets, 69 dependency links, and
+4 districts; `/api/infrastructure` can serve that fixture when MongoDB is
+unavailable.
+
 The dashboard's **AI Assistants** section includes Athena chat, powered by
 Gemini. Set `GEMINI_API_KEY` in `.env.local`; the key is used server-side and
 must never be put in a `NEXT_PUBLIC_` variable. The default model is
-`gemini-3.6-flash`. You can override it with `GEMINI_MODEL` in `.env.local`,
-then restart the dev server.
+`gemini-3.6-flash`, with `gemini-3.8-flash` as fallback. You can override the
+primary model with `GEMINI_MODEL` in `.env.local`, then restart the dev server.
 
 ## Project layout
 

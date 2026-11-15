@@ -464,7 +464,7 @@ export function AdminDashboard() {
           <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_1.1fr]">
             <div className="flex flex-col gap-5">
               <Card title="3D crisis simulator" subtitle="Opens full-screen in its own window">
-                <p className="text-xs leading-6 text-[#d8ccb0]/70">Set off a disaster, watch the city react in 3D, then press <b className="text-[#e4aa56]">Save to history</b> inside the simulator when it's done. The save shows up on this dashboard the moment it succeeds.</p>
+                <p className="text-xs leading-6 text-[#d8ccb0]/70">Set off a disaster, watch the city react in 3D, then press <b className="text-[#e4aa56]">Save to history</b> inside the simulator when it&apos;s done. The save shows up on this dashboard the moment it succeeds.</p>
                 <a href="/simulator/index.html" target="_blank" className="mt-4 block w-full rounded-xl bg-[#4a1f14] px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-white">Open 3D Simulator ↗</a>
               </Card>
               <Card title="Live insights" subtitle={simLive ? simLive.scenarioTitle : "Waiting for a simulation"}>

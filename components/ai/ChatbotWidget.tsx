@@ -101,7 +101,7 @@ export function ChatbotWidget({ components, incidents, embedded = false }: Chatb
                 <img src="/art/helmet.png" alt="" aria-hidden className="h-14 w-auto shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,.5)]" />
                 <div className="relative mb-2 rounded-2xl rounded-bl-sm border border-[#b98a4a]/60 bg-[#fff4d6]/90 p-4">
                   <span aria-hidden className="absolute -left-2 bottom-3 h-4 w-4 rotate-45 border-b border-l border-[#b98a4a]/60 bg-[#fff4d6]" />
-                  <p className="font-heading text-base font-normal leading-7 text-black">Hello, Operator. Ask me about Ithaca&apos;s infrastructure, system health, or incident activity.</p>
+                  <p className="font-heading text-base font-normal leading-7 text-black">Hello, Operator. I&apos;m Athena, your Ithaca operations assistant. I can summarize the live asset list, trace an incident, or help you choose a safe recovery order.</p>
                 </div>
               </div>
             )}
@@ -135,7 +135,7 @@ export function ChatbotWidget({ components, incidents, embedded = false }: Chatb
                 <img src="/art/helmet.png" alt="" aria-hidden className="h-14 w-auto shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,.5)]" />
                 <div className="relative mb-2 max-w-[80%] rounded-2xl rounded-bl-sm border border-[#6b0f1a]/50 bg-[#fff4d6]/90 p-4 font-heading text-base leading-7 text-[#6b0f1a]">
                   <span aria-hidden className="absolute -left-2 bottom-3 h-4 w-4 rotate-45 border-b border-l border-[#6b0f1a]/50 bg-[#fff4d6]" />
-                  Busy right now—processing your request shortly...
+                  {error}
                 </div>
               </div>
             )}
